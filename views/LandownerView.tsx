@@ -59,6 +59,8 @@ const LandownerView = () => {
 
   const isStep3Valid = !!coordinates;
 
+  const isStep4Valid = selectedImages.length > 0 || !!selectedVideo;
+
   // --- FILE HANDLING (Updated with Validation) ---
   const handleFile = (file: File) => {
     // 1. Validate Type
@@ -400,61 +402,92 @@ const LandownerView = () => {
                         <p className="text-anirvan-muted text-sm">Provide visual proof of the site and planting progress</p>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-8">
+                    <div className="grid md:grid-cols-2 gap-8 items-start">
                         {/* Image Upload Area */}
-                        <div className="space-y-4">
-                            <label className="text-xs font-semibold uppercase tracking-wider text-anirvan-muted flex justify-between">
-                                Site Photos <span>{selectedImages.length}/5</span>
+                        <div className="flex flex-col h-full">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-anirvan-muted mb-3 flex justify-between items-center px-1">
+                                Photos 
+                                <span className={selectedImages.length === 5 ? "text-anirvan-accent" : ""}>
+                                    {selectedImages.length}/5
+                                </span>
                             </label>
+                            
                             <div 
                                 onClick={() => selectedImages.length < 5 && imageInputRef.current?.click()}
-                                className={`border-2 border-dashed rounded-xl p-6 transition-all flex flex-col items-center justify-center text-center h-40 ${selectedImages.length < 5 ? 'border-white/10 hover:border-anirvan-accent/50 cursor-pointer' : 'border-white/5 opacity-50 cursor-not-allowed'}`}
+                                className={`border-2 border-dashed rounded-xl p-6 transition-all flex flex-col items-center justify-center text-center min-h-[180px] flex-1 ${selectedImages.length < 5 ? 'border-white/10 hover:border-anirvan-accent/50 cursor-pointer hover:bg-white/5' : 'border-white/5 opacity-50 cursor-not-allowed'}`}
                             >
                                 <input type="file" ref={imageInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
                                     const files = Array.from(e.target.files || []);
                                     if (selectedImages.length + files.length > 5) return alert("Max 5 images allowed");
                                     setSelectedImages([...selectedImages, ...files]);
                                 }} />
-                                <Upload className="h-6 w-6 text-anirvan-muted mb-2" />
+                                <Upload className="h-7 w-7 text-anirvan-muted mb-3" />
                                 <p className="text-white text-sm font-bold">Upload Images</p>
-                                <p className="text-[10px] text-anirvan-muted mt-1">JPG, PNG (Max 2MB each)</p>
+                                <p className="text-[10px] text-anirvan-muted mt-1.5 uppercase tracking-tighter">JPG, PNG (Max 2MB each)</p>
                             </div>
-                            <div className="flex flex-wrap gap-2">
+
+                            {/* Thumbnail Preview Row - Fixed height to prevent jumping */}
+                            <div className="flex flex-wrap gap-2 mt-4 min-h-[48px]">
                                 {selectedImages.map((img, i) => (
-                                    <div key={i} className="group relative h-12 w-12 rounded border border-white/20 overflow-hidden">
+                                    <div key={i} className="group relative h-12 w-12 rounded-lg border border-white/20 overflow-hidden shadow-lg">
                                         <img src={URL.createObjectURL(img)} className="h-full w-full object-cover" />
-                                        <button onClick={() => setSelectedImages(selectedImages.filter((_, idx) => idx !== i))} className="absolute inset-0 bg-red-500/80 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">✕</button>
+                                        <button 
+                                            onClick={() => setSelectedImages(selectedImages.filter((_, idx) => idx !== i))} 
+                                            className="absolute inset-0 bg-red-500/90 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity text-xs font-bold"
+                                        >
+                                            ✕
+                                        </button>
                                     </div>
                                 ))}
                             </div>
                         </div>
 
                         {/* Video Upload Area */}
-                        <div className="space-y-4">
-                            <label className="text-xs font-semibold uppercase tracking-wider text-anirvan-muted">Site Walkthrough</label>
+                        <div className="flex flex-col h-full">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-anirvan-muted mb-3 px-1">
+                                Site Walkthrough
+                            </label>
+                            
                             <div 
                                 onClick={() => !selectedVideo && videoInputRef.current?.click()}
-                                className={`border-2 border-dashed rounded-xl p-6 transition-all flex flex-col items-center justify-center text-center h-40 ${!selectedVideo ? 'border-white/10 hover:border-anirvan-accent/50 cursor-pointer' : 'border-white/5 bg-anirvan-primary/5 border-anirvan-primary/20'}`}
+                                className={`border-2 border-dashed rounded-xl p-6 transition-all flex flex-col items-center justify-center text-center min-h-[180px] flex-1 ${!selectedVideo ? 'border-white/10 hover:border-anirvan-accent/50 cursor-pointer hover:bg-white/5' : 'border-anirvan-accent/30 bg-anirvan-primary/5'}`}
                             >
                                 <input type="file" ref={videoInputRef} className="hidden" accept="video/*" onChange={(e) => e.target.files?.[0] && setSelectedVideo(e.target.files[0])} />
-                                {selectedVideo ? <CheckCircle2 className="h-8 w-8 text-anirvan-accent mb-2" /> : <Upload className="h-6 w-6 text-anirvan-muted mb-2" />}
-                                <p className="text-white text-sm font-bold">{selectedVideo ? "Video Selected" : "Upload Video"}</p>
-                                <p className="text-[10px] text-anirvan-muted mt-1">{selectedVideo ? selectedVideo.name : "MP4, MOV (Max 20MB)"}</p>
-                                {selectedVideo && <button onClick={(e) => { e.stopPropagation(); setSelectedVideo(null); }} className="text-[10px] text-red-400 mt-2 underline">Remove</button>}
+                                {selectedVideo ? (
+                                    <div className="flex flex-col items-center">
+                                        <CheckCircle2 className="h-8 w-8 text-anirvan-accent mb-2" />
+                                        <p className="text-anirvan-accent text-xs font-mono truncate max-w-[150px]">{selectedVideo.name}</p>
+                                        <button onClick={(e) => { e.stopPropagation(); setSelectedVideo(null); }} className="text-[10px] text-red-400 mt-2 hover:underline uppercase font-bold tracking-tighter">Remove Video</button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Upload className="h-7 w-7 text-anirvan-muted mb-3" />
+                                        <p className="text-white text-sm font-bold">Upload Video</p>
+                                        <p className="text-[10px] text-anirvan-muted mt-1.5 uppercase tracking-tighter">MP4, MOV (Max 20MB)</p>
+                                    </>
+                                )}
                             </div>
+                            {/* Empty div to match image preview height for alignment */}
+                            <div className="mt-4 min-h-[48px]"></div>
                         </div>
                     </div>
 
-                    <div className="flex gap-4 pt-4">
-                        <button onClick={() => setStep(3)} className="px-6 py-3 text-anirvan-muted">Back</button>
-                        <button 
-                            onClick={handleSubmit} 
-                            disabled={isSubmitting} 
-                            className="flex-1 font-black uppercase tracking-widest bg-anirvan-primary hover:bg-anirvan-accent text-anirvan-dark py-4 rounded-xl transition-all shadow-xl shadow-lime-900/20 flex justify-center items-center gap-2 disabled:opacity-50"
-                        >
-                            {isSubmitting && <Loader2 className="animate-spin h-5 w-5" />}
-                            {isSubmitting ? 'Finalizing Submission...' : 'Finish & Submit Registration'}
+                    <div className="flex gap-4 pt-4 items-center">
+                        <button onClick={() => setStep(3)} className="px-6 py-3 text-anirvan-muted hover:text-white transition-colors font-bold text-sm">
+                            Back
                         </button>
+                        <button 
+    onClick={handleSubmit} 
+    disabled={!isStep4Valid || isSubmitting} 
+    className={`flex-1 font-black uppercase tracking-[0.2em] py-4 rounded-xl transition-all flex justify-center items-center gap-3 shadow-xl active:scale-[0.98]
+        ${isStep4Valid 
+            ? 'bg-anirvan-primary hover:bg-anirvan-accent text-anirvan-dark shadow-lime-900/20 cursor-pointer' 
+            : 'bg-white/10 text-white/30 cursor-not-allowed shadow-none'
+        } ${isSubmitting ? 'opacity-50' : ''}`}
+>
+    {isSubmitting && <Loader2 className="animate-spin h-5 w-5" />}
+    {isSubmitting ? 'Processing Uploads...' : 'Finish & Submit Registration'}
+</button>
                     </div>
                 </div>
             )}
