@@ -51,7 +51,7 @@ const LandingView: React.FC<LandingViewProps> = ({ setView }) => {
           </div>
 
           <h1 className="text-6xl md:text-8xl font-black text-white tracking-tighter mb-8 leading-[0.85]">
-            Making reforestation <br />
+            Making forests<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-lime-400 to-green-500">
               profitable & transparent.
             </span>

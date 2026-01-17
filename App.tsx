@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Leaf, RotateCcw } from 'lucide-react'; // Added RotateCcw icon
+import { Leaf, RotateCcw } from 'lucide-react'; 
+import { useAccount, useDisconnect } from 'wagmi'; // UPDATED: EVM Hooks
 import Navbar from './components/Navbar';
 import LandingView from './views/LandingView';
 import ExplorerView from './views/ExplorerView';
@@ -7,21 +8,28 @@ import LandownerView from './views/LandownerView';
 import EnterpriseView from './views/EnterpriseView';
 import ValidationView from './views/ValidationView';
 import { ViewState } from './types';
-import { useWallet } from '@solana/wallet-adapter-react';
 
 const App = () => {
   const [view, setView] = useState<ViewState>('landing');
-  const { disconnect, connected } = useWallet();
+  
+  // UPDATED: Wagmi hooks for wallet state
+  const { isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
 
-  // FIX: Reset Wallet choice function
+  // FIX: Reset Wallet choice function for EVM/RainbowKit
   const resetWalletChoice = () => {
-    // This clears the specific key used by the Solana Wallet Provider
-    localStorage.removeItem('anirvan-wallet-choice');
-    // Force a disconnect to clear the internal state
+    // 1. Disconnect the hook
     disconnect();
-    // Briefly alert user
+    
+    // 2. Clear Wagmi & RainbowKit specific keys from storage
+    // This forces the "Connect Wallet" modal to appear fresh on reload
+    localStorage.removeItem('wagmi.store');
+    localStorage.removeItem('wagmi.recentConnectorId');
+    localStorage.removeItem('wagmi.wallet');
+    
+    // 3. Briefly alert user
     alert("Wallet selection reset. You can now choose a different provider.");
-    window.location.reload(); // Hard refresh to ensure provider re-evaluates
+    window.location.reload(); 
   };
 
   return (
@@ -48,26 +56,24 @@ const App = () => {
               January 17th, 2026 • Team Decaf-test.
             </p>
             
-            {/* NEW: RETRACT WALLET BUTTONS */}
-<div className="flex flex-col gap-2 mt-6 w-fit"> {/* Added w-fit here to bound the children */}
-    {connected && (
-    <button 
-        onClick={() => disconnect()}
-        // Changed w-fit to w-full and added flex justify-center
-        className="text-[10px] text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest font-bold border border-red-500/20 px-3 py-1.5 rounded bg-red-500/5 w-full flex items-center justify-center"
-    >
-        Disconnect Wallet
-    </button>
-    )}
-    
-    <button 
-        onClick={resetWalletChoice}
-        // Changed w-fit to w-full and kept flex justify-center
-        className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-widest font-bold flex items-center justify-center gap-2 border border-blue-500/20 px-3 py-1.5 rounded bg-blue-500/5 w-full whitespace-nowrap"
-    >
-        <RotateCcw className="h-3 w-3" /> Reset Wallet Selection
-    </button>
-</div>
+            {/* RETRACT WALLET BUTTONS */}
+            <div className="flex flex-col gap-2 mt-6 w-fit">
+                {isConnected && (
+                <button 
+                    onClick={() => disconnect()}
+                    className="text-[10px] text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest font-bold border border-red-500/20 px-3 py-1.5 rounded bg-red-500/5 w-full flex items-center justify-center"
+                >
+                    Disconnect Wallet
+                </button>
+                )}
+                
+                <button 
+                    onClick={resetWalletChoice}
+                    className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-widest font-bold flex items-center justify-center gap-2 border border-blue-500/20 px-3 py-1.5 rounded bg-blue-500/5 w-full whitespace-nowrap"
+                >
+                    <RotateCcw className="h-3 w-3" /> Reset Wallet Selection
+                </button>
+            </div>
           </div>
           
           <div>
