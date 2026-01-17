@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Leaf, RotateCcw } from 'lucide-react'; // Added Rotate Ccw icon
+import { Leaf, RotateCcw } from 'lucide-react'; // Added RotateCcw icon
 import Navbar from './components/Navbar';
 import LandingView from './views/LandingView';
 import ExplorerView from './views/ExplorerView';
