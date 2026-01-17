@@ -1,0 +1,174 @@
+/* Custom Scrollbar for the sidebar */
+.overflow-y-auto::-webkit-scrollbar {
+    width: 4px;
+}
+
+/* Custom Dropdown Styling */
+select option:hover, 
+select option:focus, 
+select option:active {
+    background-color: #84cc16 !important; /* anirvan-accent */
+    color: #0f172a !important;
+}
+
+/* Smooth Entrance for App Cards */
+@keyframes bounceIn {
+    0% { opacity: 0; transform: scale(0.95); }
+    70% { transform: scale(1.02); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-bounce-in {
+    animation: bounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Improved Input Focus */
+input:focus, select:focus {
+    box-shadow: 0 0 0 2px rgba(132, 204, 22, 0.1);
+}
+
+/* Italic styling for scientific names */
+.italic {
+    font-style: italic;
+    letter-spacing: 0.01em;
+    font-family: 'Inter', sans-serif; /* Keep same font, just italic */
+}
+
+/* Ensure custom dropdown stays on top of other elements */
+.z-50 {
+    z-index: 50 !important;
+}
+
+/* --- WALLET DROPDOWN ALIGNMENT --- */
+.wallet-adapter-dropdown {
+    width: 100%; /* Ensure the container takes full width */
+}
+
+/* --- WALLET DROPDOWN GAP REMOVAL --- */
+.wallet-adapter-dropdown-list {
+    top: calc(100% + 8px) !important;
+    border-radius: 16px !important;
+    background: #1e293b !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5) !important;
+}
+
+/* Animation for the mobile island expansion */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Optional: Add a subtle border to the bottom of the button when active 
+   to make the transition even smoother */
+
+.wallet-adapter-dropdown-list-active {
+    display: block !important;
+}
+/* --- SEARCH BAR MARQUEE ANIMATION --- */
+@keyframes placeholder-scroll {
+  0% { text-indent: 0; }
+  45% { text-indent: 0; }
+  /* Slides text to the right to show the hidden part */
+  /* Note: Adjust -40px if your text is even longer */
+  90% { text-indent: -60px; } 
+  100% { text-indent: -60px; }
+}
+
+.search-marquee::placeholder {
+  white-space: nowrap;
+  animation: placeholder-scroll 6s linear infinite alternate;
+  display: inline-block;
+  width: 100%;
+}
+
+/* Increase width on focus for better usability */
+.search-container:focus-within {
+    width: 320px !important; /* Expands from w-64 to w-80 equivalent */
+}
+
+/* --- WALLET DROPDOWN GAP REMOVAL --- */
+.wallet-adapter-button {
+    background-color: #84cc16 !important; /* anirvan-accent */
+    color: #0f172a !important; /* dark text */
+     height: 42px !important;    /* Increased height slightly to balance the larger font */
+    line-height: 42px !important;
+    padding: 0 20px !important;
+    font-size: 14px !important; /* Increased from 12px */
+    font-weight: 800 !important;
+    border-radius: 9999px !important; /* Pill shape */
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    
+   
+    
+}
+
+/* App.css */
+canvas {
+  pointer-events: none !important; /* This allows clicks to go THROUGH the effect to your buttons */
+  z-index: 0;
+}
+
+.relative.z-10 {
+  position: relative;
+  z-index: 10; /* Ensures text and buttons stay on top of the fluid */
+}
+
+.wallet-adapter-modal-wrapper {
+    background: #0f172a !important; /* anirvan-dark */
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 24px !important;
+    color: #e2e8f0 !important;
+    font-family: 'Inter', sans-serif !important;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button {
+    background: #1e293b !important; /* anirvan-card (Dark Slate) */
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-radius: 12px !important;
+    margin-bottom: 8px !important;
+    width: 100% !important;
+    justify-content: flex-start !important;
+    height: 54px !important;
+    transition: all 0.2s ease !important;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button:hover {
+    background: #84cc16 !important; /* anirvan-accent (Lime) */
+    color: #0f172a !important;      /* Dark text on lime hover */
+    transform: translateY(-1px);
+}
+
+/* Make the "Detected" or "Installed" text subtle */
+.wallet-adapter-modal-list .wallet-adapter-button span {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
+
+.wallet-adapter-modal-list-more {
+    color: #84cc16 !important;
+    font-size: 12px !important;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+/* Close button fix */
+.wallet-adapter-modal-button-close {
+    background: #1e293b !important;
+    top: 15px !important;
+    right: 15px !important;
+}
+
+/* --- KEEPING THE NAVBAR BUTTON PILL-SHAPED (But only the navbar button) --- */
+.navbar-island .wallet-adapter-button {
+    background-color: #84cc16 !important;
+    color: #0f172a !important;
+    border-radius: 9999px !important;
+    font-size: 14px !important;
+    height: 42px !important;
+}

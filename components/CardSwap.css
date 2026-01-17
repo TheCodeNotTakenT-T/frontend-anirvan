@@ -1,0 +1,37 @@
+.card-swap-container {
+  position: absolute;
+  /* Change these from 0 to 50% to center the anchor point */
+  top: 65%;
+  left: 50%;
+  
+  /* Reset the translate so it centers on the anchor */
+  transform: translate(-50%, -50%); 
+  transform-origin: center center;
+
+  perspective: 1200px; /* Increased for better depth */
+  overflow: visible;
+}
+
+.card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1e293b; 
+
+  transform-style: preserve-3d;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  
+  /* Ensure content inside doesn't overflow rounded corners */
+  overflow: hidden; 
+}
+
+/* Tablet adjustments */
+@media (max-width: 768px) {
+  .card-swap-container {
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+}
