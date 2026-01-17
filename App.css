@@ -166,9 +166,11 @@ canvas {
 /* Close button fix */
 .wallet-adapter-modal-button-close {
     background: #1e293b !important;
-    top: 20px !important;
-    right: 20px !important;
-    border-radius: 50% !important;
+    top: 6px !important;   /* Increase this to move it down */
+    right: 6px !important; /* Increase this to move it left */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 /* --- KEEPING THE NAVBAR BUTTON PILL-SHAPED (But only the navbar button) --- */
