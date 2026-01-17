@@ -4,7 +4,7 @@ import { polygonAmoy } from 'wagmi/chains';
 const walletConnectProjectId = 'YOUR_PROJECT_ID_HERE'; 
 
 // !!! MAKE SURE THIS IS THE ADDRESS OF THE NEW 'AnirvanDynamic' CONTRACT !!!
-export const CONTRACT_ADDRESS = "0x056e1D81E3B7084D4aC516AEEF2e28da72999148"; 
+export const CONTRACT_ADDRESS = "0x8b386Ac8d0Db1fa0E32f92576f8819870715d434"; 
 
 export const config = getDefaultConfig({
   appName: 'Anirvan',
