@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, DragEvent } from 'react';
-import { PencilRuler, Upload, Search, FileText, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { PencilRuler, Upload, Search, FileText, CheckCircle2, Clock, XCircle, Loader2 } from 'lucide-react';
+import { supabase } from '../supabaseClient'; // Import Supabase client
 
 // --- ARCGIS IMPORTS ---
 import Map from "@arcgis/core/Map";
@@ -15,12 +16,14 @@ import { LandApplication } from '../types';
 
 const LandownerView = () => {
     
-  // --- ALL STATE DEFINITIONS ---
+  // --- STATE DEFINITIONS ---
   const [mode, setMode] = useState<'register' | 'dashboard'>('register');
   const [step, setStep] = useState(1);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const speciesOptions = ["Native Hardwood", "Bamboo", "Fruit Bearing"];
   const [isDragging, setIsDragging] = useState(false);
+  
+  // Form Data
   const [formData, setFormData] = useState<Partial<LandApplication>>({
     ownerName: '',
     species: 'Native Hardwood',
@@ -28,6 +31,11 @@ const LandownerView = () => {
     id: '', 
     pdfName: ''
   });
+  
+  // Added State for Supabase Logic
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [coordinates, setCoordinates] = useState<{lat: number, lon: number} | null>(null);
   const [polygonRings, setPolygonRings] = useState<number[][]>([]);
   const [searchId, setSearchId] = useState('');
@@ -42,17 +50,25 @@ const LandownerView = () => {
   const isStep1Valid = formData.ownerName && formData.ownerName.trim() !== '' && 
                        formData.id && formData.id.trim() !== '';
 
-  const isStep2Valid = !!formData.pdfName;
+  const isStep2Valid = !!selectedFile; // Changed to check for actual file object
 
   const isStep3Valid = !!coordinates;
 
-  // --- FILE HANDLING ---
+  // --- FILE HANDLING (Updated with Validation) ---
   const handleFile = (file: File) => {
-    if (file && file.type === 'application/pdf') {
-      setFormData(prev => ({ ...prev, pdfName: file.name }));
-    } else {
-      alert("Please upload a PDF file.");
+    // 1. Validate Type
+    if (file.type !== 'application/pdf') {
+      alert("Only PDF files are allowed.");
+      return;
     }
+    // 2. Validate Size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size exceeds 5MB limit.");
+      return;
+    }
+    
+    setSelectedFile(file);
+    setFormData(prev => ({ ...prev, pdfName: file.name }));
   };
 
   const onDragOver = (e: DragEvent) => {
@@ -132,40 +148,110 @@ const LandownerView = () => {
     }
   }, [step, mode]);
 
-  const handleSubmit = () => {
-  if (!formData.id || !coordinates) return;
+  // --- SUPABASE SUBMISSION LOGIC ---
+  const handleSubmit = async () => {
+    if (!formData.id || !coordinates || !selectedFile) return;
 
-  const newApp: LandApplication = {
-      id: formData.id!,
-      ownerName: formData.ownerName || 'Unknown',
-      species: formData.species || 'Native',
-      area: formData.area || 0,
-      pdfName: formData.pdfName || 'documents.pdf',
-      
-      // ADD THESE TWO LINES TO FIX THE ERROR:
-      images: formData.images || [], 
-      videoName: formData.videoName || '',
+    setIsSubmitting(true);
 
-      coordinates: coordinates,
-      polygonPath: polygonRings,
-      status: 'PENDING',
-      submittedAt: new Date().toISOString()
+    try {
+        // 1. Upload PDF to Supabase Storage
+        const fileName = `${Date.now()}_${selectedFile.name.replace(/\s/g, '_')}`;
+        
+        const { error: uploadError } = await supabase.storage
+            .from('land_documents')
+            .upload(fileName, selectedFile);
+
+        if (uploadError) throw uploadError;
+
+        // 2. Get Public URL
+        const { data: { publicUrl } } = supabase.storage
+            .from('land_documents')
+            .getPublicUrl(fileName);
+
+        // 3. Insert Record into Table
+        const { error: insertError } = await supabase
+            .from('land_applications')
+            .insert([
+                {
+                    full_name: formData.ownerName,
+                    survey_number: formData.id,
+                    tree_species: formData.species,
+                    area_acres: formData.area,
+                    status: 'PENDING',
+                    document_url: publicUrl,
+                    coordinates: coordinates,
+                    polygon_path: polygonRings
+                }
+            ]);
+
+        if (insertError) throw insertError;
+
+        alert("Application Successfully Submitted!");
+        
+        // Reset and Redirect
+        setMode('dashboard');
+        setSearchId(formData.id!);
+        // We temporarily set a local object to show immediate result, 
+        // though handleSearch will fetch fresh data.
+        setMyApplication({
+            id: formData.id!,
+            ownerName: formData.ownerName!,
+            species: formData.species!,
+            area: formData.area!,
+            pdfName: selectedFile.name,
+            coordinates: coordinates,
+            polygonPath: polygonRings,
+            status: 'PENDING',
+            submittedAt: new Date().toISOString(),
+            images: [],
+            videoName: ''
+        });
+        
+        // Clear Form
+        setStep(1);
+        setFormData({ ownerName: '', species: 'Native Hardwood', area: 0, id: '', pdfName: '' });
+        setSelectedFile(null);
+        setCoordinates(null);
+
+    } catch (error: any) {
+        console.error('Submission error:', error);
+        alert(`Error: ${error.message || "Submission failed"}`);
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
-  const existing = JSON.parse(localStorage.getItem('anirvan_apps') || '[]');
-  localStorage.setItem('anirvan_apps', JSON.stringify([...existing, newApp]));
-  
-  alert("Application Submitted!");
-  setMode('dashboard');
-  setSearchId(newApp.id);
-  setMyApplication(newApp);
-  setStep(1);
-};
+  // --- SUPABASE SEARCH LOGIC ---
+  const handleSearch = async () => {
+    if (!searchId) return;
 
-  const handleSearch = () => {
-    const apps = JSON.parse(localStorage.getItem('anirvan_apps') || '[]');
-    const found = apps.find((a: LandApplication) => a.id === searchId);
-    setMyApplication(found || null);
+    const { data, error } = await supabase
+        .from('land_applications')
+        .select('*')
+        .eq('survey_number', searchId)
+        .single();
+
+    if (error || !data) {
+        setMyApplication(null);
+        alert("Application not found.");
+    } else {
+        // Map Database columns back to Frontend Type
+        const app: LandApplication = {
+            id: data.survey_number,
+            ownerName: data.full_name,
+            species: data.tree_species,
+            area: data.area_acres,
+            pdfName: 'Document.pdf', // Or extract from data.document_url
+            coordinates: data.coordinates,
+            polygonPath: data.polygon_path,
+            status: data.status,
+            submittedAt: data.submitted_at,
+            images: [],
+            videoName: ''
+        };
+        setMyApplication(app);
+    }
   };
 
   return (
@@ -240,7 +326,6 @@ const LandownerView = () => {
                             </div>
                         </div>
                         
-                        {/* VALIDATION: Button disabled if Step 1 is invalid */}
                         <button 
                             onClick={() => setStep(2)} 
                             disabled={!isStep1Valid}
@@ -274,7 +359,6 @@ const LandownerView = () => {
                     <div className="flex gap-4 mt-8">
                         <button onClick={() => setStep(1)} className="px-6 py-3 text-anirvan-muted">Back</button>
                         
-                        {/* VALIDATION: Button disabled if Step 2 (PDF) is invalid */}
                         <button 
                             onClick={() => setStep(3)} 
                             disabled={!isStep2Valid} 
@@ -303,17 +387,17 @@ const LandownerView = () => {
                     <div className="flex gap-4">
                         <button onClick={() => setStep(2)} className="px-6 py-3 text-anirvan-muted">Back</button>
                         
-                        {/* VALIDATION: Button disabled if Step 3 (Map) is invalid */}
                         <button 
                             onClick={handleSubmit} 
-                            disabled={!isStep3Valid} 
-                            className={`flex-1 font-bold py-3 rounded-lg transition-all
+                            disabled={!isStep3Valid || isSubmitting} 
+                            className={`flex-1 font-bold py-3 rounded-lg transition-all flex justify-center items-center gap-2
                                 ${isStep3Valid
                                     ? 'bg-anirvan-primary text-anirvan-dark hover:bg-anirvan-accent cursor-pointer'
                                     : 'bg-white/10 text-white/30 cursor-not-allowed'
                                 }`}
                         >
-                            Submit for Verification
+                            {isSubmitting && <Loader2 className="animate-spin h-5 w-5" />}
+                            {isSubmitting ? 'Uploading...' : 'Submit for Verification'}
                         </button>
                     </div>
                 </div>

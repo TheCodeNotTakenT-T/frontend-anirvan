@@ -14,6 +14,8 @@
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-wallets": "^0.16.1",
     "@solana/web3.js": "^1.98.4",
+    "@supabase/supabase-js": "^2.90.1",
+    "gasp": "^0.0.2",
     "gsap": "^3.14.2",
     "lucide-react": "^0.292.0",
     "react": "^18.2.0",
