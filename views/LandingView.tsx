@@ -13,11 +13,15 @@ interface LandingViewProps {
 
 const LandingView: React.FC<LandingViewProps> = ({ setView }) => {
   // Entrance animation logic matching the BlurText style
-  const blurEntrance = {
-    initial: { filter: 'blur(10px)', opacity: 0, y: -40 },
-    animate: { filter: 'blur(0px)', opacity: 1, y: 0 },
-    transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] }
-  };
+ // Inside views/LandingView.tsx - Update the blurEntrance object
+const blurEntrance = {
+  initial: { filter: 'blur(10px)', opacity: 0, y: -40 },
+  animate: { filter: 'blur(0px)', opacity: 1, y: 0 },
+  transition: { 
+    duration: 0.8, 
+    ease: [0.22, 1, 0.36, 1] as any // Add 'as any' here
+  }
+};
 
   return (
     <div className="space-y-16 pb-20">
