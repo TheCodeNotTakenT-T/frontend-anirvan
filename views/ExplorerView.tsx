@@ -1,4 +1,3 @@
-import React from 'react';
 import { Activity, Trees, Globe, CheckCircle2 } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import { MOCK_TXS } from '../data';

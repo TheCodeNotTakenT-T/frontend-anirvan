@@ -11,7 +11,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 
 const App = () => {
   const [view, setView] = useState<ViewState>('landing');
-  const { disconnect, connected, select } = useWallet();
+  const { disconnect, connected } = useWallet();
 
   // FIX: Reset Wallet choice function
   const resetWalletChoice = () => {

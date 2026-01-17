@@ -1,4 +1,3 @@
-import React from 'react';
 import { DollarSign, ShieldCheck } from 'lucide-react';
 import { MOCK_PROJECTS } from '../data';
 
