@@ -93,18 +93,23 @@ input:focus, select:focus {
 /* --- WALLET DROPDOWN GAP REMOVAL --- */
 .wallet-adapter-button {
     background-color: #84cc16 !important; /* anirvan-accent */
-    color: #0f172a !important; /* dark text */
-     height: 42px !important;    /* Increased height slightly to balance the larger font */
-    line-height: 42px !important;
-    padding: 0 20px !important;
-    font-size: 14px !important; /* Increased from 12px */
+    color: #0f172a !important; 
+    height: 42px !important;
+    padding: 0 24px !important;
+    font-size: 13px !important; 
     font-weight: 800 !important;
-    border-radius: 9999px !important; /* Pill shape */
+    border-radius: 9999px !important; 
     text-transform: uppercase !important;
     letter-spacing: 0.05em !important;
-    
-   
-    
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    transition: all 0.3s ease !important;
+    border: none !important;
+    line-height: normal !important; /* Resetting line-height fixes the "Connecting" jump */
 }
 
 /* App.css */
@@ -120,28 +125,29 @@ canvas {
 
 .wallet-adapter-modal-wrapper {
     background: #0f172a !important; /* anirvan-dark */
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(132, 204, 22, 0.2) !important;
     border-radius: 24px !important;
     color: #e2e8f0 !important;
     font-family: 'Inter', sans-serif !important;
+    padding: 12px !important;
 }
 
 .wallet-adapter-modal-list .wallet-adapter-button {
-    background: #1e293b !important; /* anirvan-card (Dark Slate) */
+    background: #1e293b !important; /* anirvan-card */
     color: #ffffff !important;
     border: 1px solid rgba(255, 255, 255, 0.05) !important;
-    border-radius: 12px !important;
-    margin-bottom: 8px !important;
+    border-radius: 16px !important;
     width: 100% !important;
-    justify-content: flex-start !important;
     height: 54px !important;
-    transition: all 0.2s ease !important;
+    margin: 0 !important; /* Reset margins to use the flex gap instead */
+    padding: 0 20px !important;
+    justify-content: flex-start !important; /* Aligns icon and name to the left */
 }
 
 .wallet-adapter-modal-list .wallet-adapter-button:hover {
-    background: #84cc16 !important; /* anirvan-accent (Lime) */
-    color: #0f172a !important;      /* Dark text on lime hover */
-    transform: translateY(-1px);
+    background: #1e293b !important;
+    border-color: #84cc16 !important;
+    box-shadow: 0 0 15px rgba(132, 204, 22, 0.1) !important;
 }
 
 /* Make the "Detected" or "Installed" text subtle */
@@ -160,8 +166,9 @@ canvas {
 /* Close button fix */
 .wallet-adapter-modal-button-close {
     background: #1e293b !important;
-    top: 15px !important;
-    right: 15px !important;
+    top: 20px !important;
+    right: 20px !important;
+    border-radius: 50% !important;
 }
 
 /* --- KEEPING THE NAVBAR BUTTON PILL-SHAPED (But only the navbar button) --- */
@@ -171,4 +178,27 @@ canvas {
     border-radius: 9999px !important;
     font-size: 14px !important;
     height: 42px !important;
+}
+
+.wallet-adapter-button-trigger {
+    justify-content: center !important;
+}
+
+.wallet-adapter-button:not([disabled]):hover {
+    background-color: #a3e635 !important;
+    transform: translateY(-1px);
+}
+
+.wallet-adapter-modal-title {
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+    padding: 24px 24px 10px 24px !important;
+}
+
+.wallet-adapter-modal-list {
+    margin: 0 !important;
+    padding: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important; /* This creates the elegant gap between Phantom and Solflare */
 }
