@@ -1,0 +1,8 @@
+/* components/ShinyText.css */
+.shiny-text {
+  display: inline-block;
+  /* Add padding to prevent descender clipping (g, y, p, etc.) */
+  padding-bottom: 0.15em;
+  /* Negative margin offsets the padding so line spacing doesn't change */
+  margin-bottom: -0.15em;
+}
