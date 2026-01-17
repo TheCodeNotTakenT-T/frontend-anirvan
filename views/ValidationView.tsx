@@ -1,3 +1,4 @@
+// views/ValidationView.tsx
 import { useState, useEffect } from 'react';
 import { CheckCircle2, FileText, MapPin, RefreshCcw, Inbox, ExternalLink, Loader2, AlertTriangle, Play } from 'lucide-react';
 import SentinelValidator from '../components/SentinelValidator';
@@ -5,8 +6,7 @@ import { LandApplication } from '../types';
 import { supabase } from '../supabaseClient';
 import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 
-// FIX: Correct Import Path (Assuming wagmi.ts is in src/)
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../src/wagmi';
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../src/wagmi'; // Fixed import path (removed src/)
 
 const ValidationView = () => {
   const [applications, setApplications] = useState<LandApplication[]>([]);
