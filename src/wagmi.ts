@@ -1,9 +1,9 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { polygonAmoy } from 'wagmi/chains';
 
-const walletConnectProjectId = 'YOUR_PROJECT_ID_OR_RANDOM_STRING'; 
+const walletConnectProjectId = 'YOUR_PROJECT_ID_HERE'; 
 
-// !!! REPLACE THIS WITH THE NEW ADDRESS YOU JUST COPIED !!!
+// !!! MAKE SURE THIS IS THE ADDRESS OF THE NEW 'AnirvanDynamic' CONTRACT !!!
 export const CONTRACT_ADDRESS = "0x056e1D81E3B7084D4aC516AEEF2e28da72999148"; 
 
 export const config = getDefaultConfig({
@@ -13,36 +13,38 @@ export const config = getDefaultConfig({
   ssr: false, 
 });
 
-// UPDATED ABI - Matches the new 2-argument function
+// NEW ABI FOR DYNAMIC CONTRACT
 export const CONTRACT_ABI = [
   {
-    "inputs": [
-      { "internalType": "address", "name": "landowner", "type": "address" },
-      { "internalType": "string", "name": "_tokenURI", "type": "string" }
-    ],
-    "name": "registerLandAndMint",
+    "inputs": [{"internalType": "address","name": "landowner","type": "address"}],
+    "name": "registerLand",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [
-      { "internalType": "uint256", "name": "tokenId", "type": "uint256" }
-    ],
-    "name": "buyCredit",
+    "inputs": [{"internalType": "uint256","name": "projectId","type": "uint256"}],
+    "name": "buyPendingCredits",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
   },
   {
-    "inputs": [
-      { "internalType": "uint256", "name": "usdAmount", "type": "uint256" }
-    ],
-    "name": "getMaticPrice",
+    "inputs": [{"internalType": "uint256","name": "projectId","type": "uint256"}],
+    "name": "getPendingTokens",
+    "outputs": [{"internalType": "uint256","name": "","type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256","name": "","type": "uint256"}],
+    "name": "projects",
     "outputs": [
-      { "internalType": "uint256", "name": "", "type": "uint256" }
+      {"internalType": "address","name": "landowner","type": "address"},
+      {"internalType": "uint256","name": "lastClaimTime","type": "uint256"},
+      {"internalType": "bool","name": "isRegistered","type": "bool"}
     ],
-    "stateMutability": "pure",
+    "stateMutability": "view",
     "type": "function"
   }
 ] as const;
