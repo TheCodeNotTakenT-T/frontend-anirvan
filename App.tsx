@@ -49,23 +49,25 @@ const App = () => {
             </p>
             
             {/* NEW: RETRACT WALLET BUTTONS */}
-            <div className="flex flex-col gap-2 mt-6">
-                {connected && (
-                <button 
-                    onClick={() => disconnect()}
-                    className="text-[10px] text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest font-bold border border-red-500/20 px-3 py-1.5 rounded bg-red-500/5 w-fit"
-                >
-                    Disconnect Wallet
-                </button>
-                )}
-                
-                <button 
-                    onClick={resetWalletChoice}
-                    className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-widest font-bold flex items-center gap-2 border border-blue-500/20 px-3 py-1.5 rounded bg-blue-500/5 w-fit"
-                >
-                    <RotateCcw className="h-3 w-3" /> Reset Wallet Selection
-                </button>
-            </div>
+<div className="flex flex-col gap-2 mt-6 w-fit"> {/* Added w-fit here to bound the children */}
+    {connected && (
+    <button 
+        onClick={() => disconnect()}
+        // Changed w-fit to w-full and added flex justify-center
+        className="text-[10px] text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest font-bold border border-red-500/20 px-3 py-1.5 rounded bg-red-500/5 w-full flex items-center justify-center"
+    >
+        Disconnect Wallet
+    </button>
+    )}
+    
+    <button 
+        onClick={resetWalletChoice}
+        // Changed w-fit to w-full and kept flex justify-center
+        className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-widest font-bold flex items-center justify-center gap-2 border border-blue-500/20 px-3 py-1.5 rounded bg-blue-500/5 w-full whitespace-nowrap"
+    >
+        <RotateCcw className="h-3 w-3" /> Reset Wallet Selection
+    </button>
+</div>
           </div>
           
           <div>

@@ -21,7 +21,12 @@ const LandownerView = () => {
   const [step, setStep] = useState(1);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const speciesOptions = ["Native Hardwood", "Bamboo", "Fruit Bearing"];
-  const [isDragging, setIsDragging] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);// New State for Step 4 Media
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
   
   // Form Data
   const [formData, setFormData] = useState<Partial<LandApplication>>({
@@ -151,71 +156,57 @@ const LandownerView = () => {
   // --- SUPABASE SUBMISSION LOGIC ---
   const handleSubmit = async () => {
     if (!formData.id || !coordinates || !selectedFile) return;
-
     setIsSubmitting(true);
 
     try {
-        // 1. Upload PDF to Supabase Storage
-        const fileName = `${Date.now()}_${selectedFile.name.replace(/\s/g, '_')}`;
-        
-        const { error: uploadError } = await supabase.storage
-            .from('land_documents')
-            .upload(fileName, selectedFile);
+        // 1. Upload Primary Document
+        const docName = `${Date.now()}_doc_${selectedFile.name.replace(/\s/g, '_')}`;
+        await supabase.storage.from('land_documents').upload(docName, selectedFile);
+        const { data: { publicUrl: docUrl } } = supabase.storage.from('land_documents').getPublicUrl(docName);
 
-        if (uploadError) throw uploadError;
+        // 2. Upload Images (New)
+        const imageUrls: string[] = [];
+        for (const img of selectedImages) {
+            const imgName = `${Date.now()}_img_${img.name.replace(/\s/g, '_')}`;
+            await supabase.storage.from('land_documents').upload(imgName, img);
+            imageUrls.push(supabase.storage.from('land_documents').getPublicUrl(imgName).data.publicUrl);
+        }
 
-        // 2. Get Public URL
-        const { data: { publicUrl } } = supabase.storage
-            .from('land_documents')
-            .getPublicUrl(fileName);
+        // 3. Upload Video (New)
+        let videoUrl = '';
+        if (selectedVideo) {
+            const vidName = `${Date.now()}_vid_${selectedVideo.name.replace(/\s/g, '_')}`;
+            await supabase.storage.from('land_documents').upload(vidName, selectedVideo);
+            videoUrl = supabase.storage.from('land_documents').getPublicUrl(vidName).data.publicUrl;
+        }
 
-        // 3. Insert Record into Table
-        const { error: insertError } = await supabase
-            .from('land_applications')
-            .insert([
-                {
-                    full_name: formData.ownerName,
-                    survey_number: formData.id,
-                    tree_species: formData.species,
-                    area_acres: formData.area,
-                    status: 'PENDING',
-                    document_url: publicUrl,
-                    coordinates: coordinates,
-                    polygon_path: polygonRings
-                }
-            ]);
+        // 4. Insert Record
+        const { error: insertError } = await supabase.from('land_applications').insert([
+            {
+                full_name: formData.ownerName,
+                survey_number: formData.id,
+                tree_species: formData.species,
+                area_acres: formData.area,
+                status: 'PENDING',
+                document_url: docUrl,
+                coordinates: coordinates,
+                polygon_path: polygonRings,
+                images: imageUrls, // Added to DB insert
+                video_url: videoUrl  // Added to DB insert
+            }
+        ]);
 
         if (insertError) throw insertError;
 
-        alert("Application Successfully Submitted!");
-        
-        // Reset and Redirect
+        alert("Application Successfully Submitted with Media Proof!");
         setMode('dashboard');
         setSearchId(formData.id!);
-        // We temporarily set a local object to show immediate result, 
-        // though handleSearch will fetch fresh data.
-        setMyApplication({
-            id: formData.id!,
-            ownerName: formData.ownerName!,
-            species: formData.species!,
-            area: formData.area!,
-            pdfName: selectedFile.name,
-            coordinates: coordinates,
-            polygonPath: polygonRings,
-            status: 'PENDING',
-            submittedAt: new Date().toISOString(),
-            images: [],
-            videoName: ''
-        });
         
-        // Clear Form
+        // Reset steps and files
         setStep(1);
-        setFormData({ ownerName: '', species: 'Native Hardwood', area: 0, id: '', pdfName: '' });
-        setSelectedFile(null);
-        setCoordinates(null);
-
+        setSelectedImages([]);
+        setSelectedVideo(null);
     } catch (error: any) {
-        console.error('Submission error:', error);
         alert(`Error: ${error.message || "Submission failed"}`);
     } finally {
         setIsSubmitting(false);
@@ -266,7 +257,7 @@ const LandownerView = () => {
       {mode === 'register' ? (
         <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-8 max-w-lg mx-auto">
-                {[1,2,3].map(i => (
+               {[1,2,3,4].map(i => (
                     <div key={i} className={`h-8 w-8 rounded-full border-2 flex items-center justify-center font-bold ${step >= i ? 'border-anirvan-accent text-anirvan-accent' : 'border-white/10 text-white/10'}`}>{i}</div>
                 ))}
             </div>
@@ -387,17 +378,82 @@ const LandownerView = () => {
                     <div className="flex gap-4">
                         <button onClick={() => setStep(2)} className="px-6 py-3 text-anirvan-muted">Back</button>
                         
+                       <button 
+    onClick={() => setStep(4)} 
+    disabled={!isStep3Valid} 
+    className={`flex-1 font-bold py-3 rounded-lg transition-all
+        ${isStep3Valid
+            ? 'bg-anirvan-primary text-anirvan-dark hover:bg-anirvan-accent cursor-pointer'
+            : 'bg-white/10 text-white/30 cursor-not-allowed'
+        }`}
+>
+    Next Step
+</button>
+                    </div>
+                </div>
+            )}
+
+            {step === 4 && (
+                <div className="bg-anirvan-card border border-white/10 rounded-xl p-8 animate-fade-in shadow-2xl space-y-8">
+                    <div className="text-center">
+                        <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">4. Media Evidence</h2>
+                        <p className="text-anirvan-muted text-sm">Provide visual proof of the site and planting progress</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-8">
+                        {/* Image Upload Area */}
+                        <div className="space-y-4">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-anirvan-muted flex justify-between">
+                                Site Photos <span>{selectedImages.length}/5</span>
+                            </label>
+                            <div 
+                                onClick={() => selectedImages.length < 5 && imageInputRef.current?.click()}
+                                className={`border-2 border-dashed rounded-xl p-6 transition-all flex flex-col items-center justify-center text-center h-40 ${selectedImages.length < 5 ? 'border-white/10 hover:border-anirvan-accent/50 cursor-pointer' : 'border-white/5 opacity-50 cursor-not-allowed'}`}
+                            >
+                                <input type="file" ref={imageInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+                                    const files = Array.from(e.target.files || []);
+                                    if (selectedImages.length + files.length > 5) return alert("Max 5 images allowed");
+                                    setSelectedImages([...selectedImages, ...files]);
+                                }} />
+                                <Upload className="h-6 w-6 text-anirvan-muted mb-2" />
+                                <p className="text-white text-sm font-bold">Upload Images</p>
+                                <p className="text-[10px] text-anirvan-muted mt-1">JPG, PNG (Max 2MB each)</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {selectedImages.map((img, i) => (
+                                    <div key={i} className="group relative h-12 w-12 rounded border border-white/20 overflow-hidden">
+                                        <img src={URL.createObjectURL(img)} className="h-full w-full object-cover" />
+                                        <button onClick={() => setSelectedImages(selectedImages.filter((_, idx) => idx !== i))} className="absolute inset-0 bg-red-500/80 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">✕</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Video Upload Area */}
+                        <div className="space-y-4">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-anirvan-muted">Site Walkthrough</label>
+                            <div 
+                                onClick={() => !selectedVideo && videoInputRef.current?.click()}
+                                className={`border-2 border-dashed rounded-xl p-6 transition-all flex flex-col items-center justify-center text-center h-40 ${!selectedVideo ? 'border-white/10 hover:border-anirvan-accent/50 cursor-pointer' : 'border-white/5 bg-anirvan-primary/5 border-anirvan-primary/20'}`}
+                            >
+                                <input type="file" ref={videoInputRef} className="hidden" accept="video/*" onChange={(e) => e.target.files?.[0] && setSelectedVideo(e.target.files[0])} />
+                                {selectedVideo ? <CheckCircle2 className="h-8 w-8 text-anirvan-accent mb-2" /> : <Upload className="h-6 w-6 text-anirvan-muted mb-2" />}
+                                <p className="text-white text-sm font-bold">{selectedVideo ? "Video Selected" : "Upload Video"}</p>
+                                <p className="text-[10px] text-anirvan-muted mt-1">{selectedVideo ? selectedVideo.name : "MP4, MOV (Max 20MB)"}</p>
+                                {selectedVideo && <button onClick={(e) => { e.stopPropagation(); setSelectedVideo(null); }} className="text-[10px] text-red-400 mt-2 underline">Remove</button>}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4 pt-4">
+                        <button onClick={() => setStep(3)} className="px-6 py-3 text-anirvan-muted">Back</button>
                         <button 
                             onClick={handleSubmit} 
-                            disabled={!isStep3Valid || isSubmitting} 
-                            className={`flex-1 font-bold py-3 rounded-lg transition-all flex justify-center items-center gap-2
-                                ${isStep3Valid
-                                    ? 'bg-anirvan-primary text-anirvan-dark hover:bg-anirvan-accent cursor-pointer'
-                                    : 'bg-white/10 text-white/30 cursor-not-allowed'
-                                }`}
+                            disabled={isSubmitting} 
+                            className="flex-1 font-black uppercase tracking-widest bg-anirvan-primary hover:bg-anirvan-accent text-anirvan-dark py-4 rounded-xl transition-all shadow-xl shadow-lime-900/20 flex justify-center items-center gap-2 disabled:opacity-50"
                         >
                             {isSubmitting && <Loader2 className="animate-spin h-5 w-5" />}
-                            {isSubmitting ? 'Uploading...' : 'Submit for Verification'}
+                            {isSubmitting ? 'Finalizing Submission...' : 'Finish & Submit Registration'}
                         </button>
                     </div>
                 </div>
