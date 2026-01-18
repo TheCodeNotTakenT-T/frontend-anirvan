@@ -19,7 +19,7 @@ const EnterpriseView = () => {
 
   // Wagmi
   const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
   // 1. Fetch Projects from Supabase
   useEffect(() => {
@@ -41,7 +41,7 @@ const EnterpriseView = () => {
             polygonPath: row.polygon_path,
             status: row.status,
             submittedAt: row.submitted_at,
-            images: row.images || [], 
+            images: Array.isArray(row.images) ? row.images : [], // Robustly fetch the images array
             videoName: row.video_url
         }));
         setProjects(mapped);
@@ -51,8 +51,6 @@ const EnterpriseView = () => {
   }, []);
 
   // 2. Fetch Blockchain Data (Start Times)
-  // In a real app, use useReadContracts (plural) for bulk fetching. 
-  // Here we simulate fetching for the first few items for the demo.
   const { data: project0Data } = useReadContract({
     address: CONTRACT_ADDRESS, abi: CONTRACT_ABI, functionName: 'projects', args: [BigInt(0)],
   });
@@ -66,16 +64,11 @@ const EnterpriseView = () => {
       const now = Math.floor(Date.now() / 1000);
       const newMarketData: Record<number, ProjectMarketData> = {};
 
-      // Helper to calculate
       const calc = (pData: any, idx: number) => {
         if (!pData) return;
-        const lastClaim = Number(pData[1]); // Index 1 is lastClaimTime
+        const lastClaim = Number(pData[1]); 
         const elapsed = now - lastClaim;
-        
-        // DEMO SPEED: 1 Token every 60 seconds
         const pending = Math.floor(elapsed / 60); 
-        
-        // Cost: 20 POL per Token
         const cost = pending * 20;
 
         newMarketData[idx] = {
@@ -89,7 +82,7 @@ const EnterpriseView = () => {
       calc(project1Data, 1);
       
       setMarketData(newMarketData);
-    }, 1000); // Update every second
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [project0Data, project1Data]);
@@ -106,7 +99,7 @@ const EnterpriseView = () => {
             abi: CONTRACT_ABI,
             functionName: 'buyPendingCredits',
             args: [BigInt(index)],
-            value: BigInt(data.costInPol) * BigInt(1e18) // Convert to Wei
+            value: BigInt(data.costInPol) * BigInt(1e18) 
         });
     } catch (e) {
         console.error(e);
@@ -128,14 +121,23 @@ const EnterpriseView = () => {
           const mData = marketData[index];
           const pending = mData ? mData.pendingTokens : 0;
           const cost = mData ? mData.costInPol : 0;
+          
+          // Get the first image from the array
+          const thumbnail = project.images && project.images.length > 0 ? project.images[0] : null;
 
           return (
             <div key={project.id} className="bg-anirvan-card border border-white/10 rounded-xl overflow-hidden hover:border-anirvan-accent/50 transition-all group">
                <div className="h-48 overflow-hidden relative bg-gray-900">
-                    {project.images.length > 0 ? (
-                        <img src={project.images[0]} className="w-full h-full object-cover" />
+                    {thumbnail ? (
+                        <img 
+                          src={thumbnail} 
+                          alt={project.ownerName} 
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" 
+                        />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white/20 font-bold">NO IMAGE</div>
+                        <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white/10 font-bold uppercase tracking-widest text-xs">
+                          No Site Imagery
+                        </div>
                     )}
                     
                     {/* LIVE TICKER BADGE */}
@@ -185,7 +187,7 @@ const EnterpriseView = () => {
         })}
       </div>
       
-      {isSuccess && (
+      {isConfirmed && (
         <div className="fixed bottom-8 right-8 bg-green-900 text-green-100 p-4 rounded-xl border border-green-500/50 shadow-2xl animate-bounce-in z-50">
             <div className="font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5"/> Batch Purchased!</div>
             <div className="text-xs mt-1">NFT Minted. Counter reset.</div>

@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Leaf, RotateCcw } from 'lucide-react'; 
-import { useAccount, useDisconnect } from 'wagmi'; // UPDATED: EVM Hooks
+import { useAccount, useDisconnect } from 'wagmi';
 import Navbar from './components/Navbar';
 import LandingView from './views/LandingView';
-import ExplorerView from './views/ExplorerView';
 import LandownerView from './views/LandownerView';
 import EnterpriseView from './views/EnterpriseView';
 import ValidationView from './views/ValidationView';
@@ -11,24 +10,15 @@ import { ViewState } from './types';
 
 const App = () => {
   const [view, setView] = useState<ViewState>('landing');
-  
-  // UPDATED: Wagmi hooks for wallet state
   const { isConnected } = useAccount();
   const { disconnect } = useDisconnect();
 
-  // FIX: Reset Wallet choice function for EVM/RainbowKit
   const resetWalletChoice = () => {
-    // 1. Disconnect the hook
     disconnect();
-    
-    // 2. Clear Wagmi & RainbowKit specific keys from storage
-    // This forces the "Connect Wallet" modal to appear fresh on reload
     localStorage.removeItem('wagmi.store');
     localStorage.removeItem('wagmi.recentConnectorId');
     localStorage.removeItem('wagmi.wallet');
-    
-    // 3. Briefly alert user
-    alert("Wallet selection reset. You can now choose a different provider.");
+    alert("Wallet selection reset.");
     window.location.reload(); 
   };
 
@@ -38,7 +28,6 @@ const App = () => {
       
       <main className="flex-grow pt-[76px]"> 
         {view === 'landing' && <LandingView setView={setView} />}
-        {view === 'explorer' && <ExplorerView />}
         {view === 'landowner' && <LandownerView />}
         {view === 'enterprise' && <EnterpriseView />}
         {view === 'validation' && <ValidationView />}

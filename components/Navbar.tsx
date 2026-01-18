@@ -49,7 +49,6 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView }) => {
           
           <div className="hidden lg:flex items-center gap-1 bg-black/40 p-1 rounded-full border border-white/5 mx-4">
             <NavItem view="landing" label="Overview" />
-            <NavItem view="explorer" label="Explorer" />
             <NavItem view="landowner" label="Landowners" />
             <NavItem view="enterprise" label="Marketplace" />
             <NavItem view="validation" label="Validation" />
@@ -81,9 +80,8 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView }) => {
         </div>
         {/* Mobile menu */}
         {isMenuOpen && (
-          <div className="lg:hidden flex flex-col gap-1 mt-4">
+          <div className="hidden lg:flex items-center gap-1 bg-black/40 p-1 rounded-full border border-white/5 mx-4">
             <NavItem view="landing" label="Overview" />
-            <NavItem view="explorer" label="Explorer" />
             <NavItem view="landowner" label="Landowners" />
             <NavItem view="enterprise" label="Marketplace" />
             <NavItem view="validation" label="Validation" />

@@ -1,4 +1,4 @@
-export type ViewState = 'landing' | 'explorer' | 'landowner' | 'enterprise' | 'validation';
+export type ViewState = 'landing' | 'landowner' | 'enterprise' | 'validation';
 
 export interface Transaction {
   hash: string;
@@ -39,9 +39,9 @@ export interface LandApplication {
   ownerName: string;
   species: string;
   area: number;
-  pdfName: string;
+  pdfName: string; // Used for document_url
   images: string[];
-  videoName?: string;
+  videoName?: string; // Used for video_url
   coordinates: {
     lat: number;
     lon: number;
@@ -49,7 +49,6 @@ export interface LandApplication {
   polygonPath?: number[][]; 
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   submittedAt: string;
-  // NEW FIELDS
-  walletAddress?: string; // Links to Supabase owner_wallet
-  contractId?: number;    // Links to Smart Contract ID
+  walletAddress?: string;
+  contractId?: number;
 }

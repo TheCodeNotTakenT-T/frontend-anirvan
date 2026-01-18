@@ -12,16 +12,15 @@ interface LandingViewProps {
 }
 
 const LandingView: React.FC<LandingViewProps> = ({ setView }) => {
-  // Entrance animation logic matching the BlurText style
- // Inside views/LandingView.tsx - Update the blurEntrance object
-const blurEntrance = {
-  initial: { filter: 'blur(10px)', opacity: 0, y: -40 },
-  animate: { filter: 'blur(0px)', opacity: 1, y: 0 },
-  transition: { 
-    duration: 0.8, 
-    ease: [0.22, 1, 0.36, 1] as any // Add 'as any' here
-  }
-};
+  // Entrance animation logic
+  const blurEntrance = {
+    initial: { filter: 'blur(10px)', opacity: 0, y: -40 },
+    animate: { filter: 'blur(0px)', opacity: 1, y: 0 },
+    transition: { 
+      duration: 0.8, 
+      ease: [0.22, 1, 0.36, 1] as any 
+    }
+  };
 
   return (
     <div className="space-y-16 pb-20">
@@ -50,7 +49,7 @@ const blurEntrance = {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lime-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-lime-500"></span>
             </span>
-            Live on Solana Devnet
+            Live on Polygon Amoy
           </div>
 
           {/* HEADLINE WITH SHINY + ENTRANCE EFFECT */}
@@ -86,10 +85,10 @@ const blurEntrance = {
 
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <button 
-              onClick={() => setView('explorer')}
+              onClick={() => setView('enterprise')}
               className="px-10 py-4 bg-anirvan-primary hover:bg-lime-600 text-anirvan-dark rounded-xl font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-lime-900/20 active:scale-95"
             >
-              Explore Network
+              View Marketplace
             </button>
             <button 
               onClick={() => setView('landowner')}
@@ -118,7 +117,7 @@ const blurEntrance = {
           </div>
           <div>
             <div className="text-sm text-anirvan-muted mb-1">Artha Price</div>
-            <div className="text-2xl font-mono text-white">$0.04 <span className="text-green-500 text-sm">▲ 12%</span></div>
+            <div className="text-2xl font-mono text-white">$10.00 <span className="text-green-500 text-sm">▲ FIXED</span></div>
           </div>
         </div>
       </div>
@@ -172,7 +171,7 @@ const blurEntrance = {
               </h2>
 
               <p className="text-lg text-anirvan-muted max-md leading-relaxed">
-                Anirvan solves the transparency crisis in reforestation. By merging NASA's Sentinel data with Solana's high-speed ledger, we've built a system where every seedling is a verifiable asset.
+                Anirvan solves the transparency crisis in reforestation. By merging NASA's Sentinel data with high-speed ledgers, we've built a system where every seedling is a verifiable asset.
               </p>
               
               <div className="space-y-4">
