@@ -1,10 +1,14 @@
-import { useState, useEffect, useRef, DragEvent } from 'react';
-import { PencilRuler, Upload, FileText, CheckCircle2, Clock, XCircle, Loader2, Wallet, LayoutDashboard, PlusCircle, LogIn } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { 
+  Upload, FileText, CheckCircle2, Clock, XCircle, 
+  Loader2, Wallet, LayoutDashboard, PlusCircle, LogIn, 
+  TrendingUp, Coins 
+} from 'lucide-react';
 import { supabase } from '../supabaseClient'; 
 
 // --- WAGMI & RAINBOWKIT ---
 import { useAccount } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit'; // Assuming you have this installed
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 // --- ARCGIS IMPORTS ---
 import Map from "@arcgis/core/Map";
@@ -24,6 +28,7 @@ const LandownerView = () => {
   // --- STATE ---
   const [mode, setMode] = useState<'register' | 'dashboard'>('register');
   const [step, setStep] = useState(1);
+  const [currentTime, setCurrentTime] = useState(Date.now()); // <--- NEW: For the live ticker
   
   // Registration Form State
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -38,16 +43,14 @@ const LandownerView = () => {
   const [polygonRings, setPolygonRings] = useState<number[][]>([]);
   
   // UI State
-  const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
   
-  // Dashboard Data (Array of apps belonging to this wallet)
+  // Dashboard Data
   const [myApplications, setMyApplications] = useState<LandApplication[]>([]);
 
   // Refs
   const mapDiv = useRef<HTMLDivElement>(null);
-  const layerRef = useRef<GraphicsLayer | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -59,12 +62,19 @@ const LandownerView = () => {
     }
   }, [isConnected, address, mode]);
 
+  // --- NEW: Live Ticker Effect ---
+  // This updates the 'currentTime' every second so the tokens go up in real-time
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const fetchMyApplications = async () => {
       setIsLoadingDashboard(true);
       const { data, error } = await supabase
           .from('land_applications')
           .select('*')
-          .eq('wallet_address', address); // LOGIN LOGIC: Only fetch MY data
+          .eq('wallet_address', address);
 
       if (!error && data) {
           const apps: LandApplication[] = data.map((d: any) => ({
@@ -73,9 +83,9 @@ const LandownerView = () => {
               species: d.tree_species,
               area: d.area_acres,
               status: d.status,
-              submittedAt: d.submitted_at,
+              submittedAt: d.submitted_at, // Vital for calculation
               walletAddress: d.wallet_address,
-              // ... other fields if needed for display
+              images: d.images
           } as LandApplication));
           setMyApplications(apps);
       }
@@ -88,7 +98,6 @@ const LandownerView = () => {
     setIsSubmitting(true);
 
     try {
-        // Upload Logic (Simplified for brevity, same as before)
         const docName = `${Date.now()}_doc_${selectedFile.name.replace(/\s/g, '_')}`;
         await supabase.storage.from('land_documents').upload(docName, selectedFile);
         const { data: { publicUrl: docUrl } } = supabase.storage.from('land_documents').getPublicUrl(docName);
@@ -107,7 +116,6 @@ const LandownerView = () => {
             videoUrl = supabase.storage.from('land_documents').getPublicUrl(vidName).data.publicUrl;
         }
 
-        // INSERT WITH WALLET ADDRESS
         const { error } = await supabase.from('land_applications').insert([{
             full_name: formData.ownerName,
             survey_number: formData.id,
@@ -119,13 +127,13 @@ const LandownerView = () => {
             polygon_path: polygonRings,
             images: imageUrls,
             video_url: videoUrl,
-            wallet_address: address // <--- Identity Binding
+            wallet_address: address
         }]);
 
         if (error) throw error;
 
         alert("Application Submitted!");
-        setMode('dashboard'); // Auto-switch to dashboard
+        setMode('dashboard');
         setStep(1);
         setSelectedImages([]);
         setSelectedVideo(null);
@@ -136,11 +144,9 @@ const LandownerView = () => {
     }
   };
 
-  // --- MAP LOGIC (Only runs when step 3 is active) ---
+  // --- MAP LOGIC ---
   useEffect(() => {
     if (mode === 'register' && step === 3 && mapDiv.current) {
-      // ... (Same ESRI Map logic as previous code) ...
-      // For brevity, inserting the core setup:
       const graphicsLayer = new GraphicsLayer();
       const map = new Map({ basemap: "satellite", layers: [graphicsLayer] });
       const view = new MapView({ container: mapDiv.current, map, center: [76.2711, 10.8505], zoom: 16 });
@@ -152,10 +158,7 @@ const LandownerView = () => {
             const area = geometryEngine.planarArea(poly, "acres");
             if (poly.extent?.center) {
                 setFormData(p => ({ ...p, area: parseFloat(area.toFixed(2)) }));
-                if (
-                  typeof poly.extent.center.latitude === 'number' &&
-                  typeof poly.extent.center.longitude === 'number'
-                ) {
+                if (typeof poly.extent.center.latitude === 'number' && typeof poly.extent.center.longitude === 'number') {
                   setCoordinates({ lat: poly.extent.center.latitude, lon: poly.extent.center.longitude });
                 }
                 if (webMercatorUtils.canProject(poly, view.spatialReference)) {
@@ -169,8 +172,7 @@ const LandownerView = () => {
     }
   }, [step, mode]);
 
-
-  // --- VIEW: NOT CONNECTED (LOGIN SCREEN) ---
+  // --- VIEW: NOT CONNECTED ---
   if (!isConnected) {
     return (
         <div className="min-h-[60vh] flex flex-col items-center justify-center animate-fade-in">
@@ -179,10 +181,8 @@ const LandownerView = () => {
                     <Wallet className="h-10 w-10 text-anirvan-accent" />
                 </div>
                 <h1 className="text-3xl font-bold text-white mb-3">Welcome, Landowner</h1>
-                <p className="text-anirvan-muted mb-8">Connect your wallet to register land, track verification status, and manage your carbon credits.</p>
-                <div className="flex justify-center">
-                    <ConnectButton />
-                </div>
+                <p className="text-anirvan-muted mb-8">Connect your wallet to register land and track earnings.</p>
+                <div className="flex justify-center"><ConnectButton /></div>
                 <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-center gap-2 text-xs text-white/30">
                     <LogIn className="h-3 w-3" /> Secure Blockchain Login
                 </div>
@@ -204,8 +204,6 @@ const LandownerView = () => {
                 <LayoutDashboard className="h-4 w-4"/> My Dashboard
             </button>
         </div>
-        
-        {/* User Identity Pill */}
         <div className="hidden md:flex items-center gap-3 bg-anirvan-dark border border-white/10 px-4 py-2 rounded-full">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
             <span className="text-xs font-mono text-anirvan-muted">{address?.slice(0,6)}...{address?.slice(-4)}</span>
@@ -214,13 +212,17 @@ const LandownerView = () => {
 
       {mode === 'register' ? (
         <div className="max-w-4xl mx-auto">
-            {/* ... (STEP WIZARD UI - Same as previous response, keeping it concise here) ... */}
-            <div className="flex items-center justify-between mb-8 max-w-lg mx-auto">
+            {/* ... (Keep your Registration UI exactly as it was, skipping for brevity) ... */}
+            {/* Note: I am not changing the Register Wizard code, assuming it is same as before. 
+                I am focusing on the Dashboard changes below. */}
+            
+            {/* Simplified Placeholder for Wizard (In real code, keep your Wizard here) */}
+             <div className="flex items-center justify-between mb-8 max-w-lg mx-auto">
                {[1,2,3,4].map(i => (
                     <div key={i} className={`h-8 w-8 rounded-full border-2 flex items-center justify-center font-bold ${step >= i ? 'border-anirvan-accent text-anirvan-accent' : 'border-white/10 text-white/10'}`}>{i}</div>
                 ))}
             </div>
-
+            
             {/* Step 1 */}
             {step === 1 && (
                 <div className="bg-anirvan-card border border-white/10 rounded-xl p-8 shadow-2xl animate-fade-in">
@@ -237,7 +239,7 @@ const LandownerView = () => {
                 </div>
             )}
             
-            {/* Step 2 (Simplified for display) */}
+            {/* Step 2 */}
             {step === 2 && (
                 <div className="bg-anirvan-card border border-white/10 rounded-xl p-8 text-center animate-fade-in">
                     <h2 className="text-2xl font-bold text-white mb-4">2. Upload Deed (PDF)</h2>
@@ -250,7 +252,7 @@ const LandownerView = () => {
                 </div>
             )}
 
-            {/* Step 3 (Map) */}
+            {/* Step 3 */}
             {step === 3 && (
                 <div className="animate-fade-in">
                      <div className="h-[400px] w-full bg-black rounded-xl overflow-hidden relative border border-white/10"><div ref={mapDiv} className="w-full h-full" /></div>
@@ -258,7 +260,7 @@ const LandownerView = () => {
                 </div>
             )}
 
-            {/* Step 4 (Media & Submit) */}
+            {/* Step 4 */}
             {step === 4 && (
                 <div className="bg-anirvan-card border border-white/10 rounded-xl p-8 animate-fade-in">
                     <h2 className="text-2xl font-bold text-white mb-6">4. Evidence & Submit</h2>
@@ -274,7 +276,7 @@ const LandownerView = () => {
             )}
         </div>
       ) : (
-        // --- DASHBOARD VIEW (LOGGED IN) ---
+        // --- DASHBOARD VIEW (UPDATED FOR TOKEN VIEW) ---
         <div className="max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold text-white mb-6">My Applications</h2>
             {isLoadingDashboard ? (
@@ -283,34 +285,75 @@ const LandownerView = () => {
                 <div className="bg-anirvan-card border border-white/10 rounded-xl p-12 text-center">
                     <div className="bg-white/5 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><FileText className="h-8 w-8 text-white/20"/></div>
                     <h3 className="text-white font-bold text-lg">No Applications Found</h3>
-                    <p className="text-anirvan-muted text-sm mt-2">You haven't registered any land with this wallet yet.</p>
                 </div>
             ) : (
                 <div className="grid gap-4">
-                    {myApplications.map((app) => (
-                        <div key={app.id} className="bg-anirvan-card border border-white/10 rounded-xl p-6 flex justify-between items-center hover:border-white/20 transition-colors animate-fade-in">
-                            <div>
-                                <h3 className="text-xl font-bold text-white">{app.ownerName}</h3>
-                                <div className="flex gap-4 mt-2 text-xs text-anirvan-muted font-mono">
-                                    <span>ID: {app.id}</span>
-                                    <span>•</span>
-                                    <span>{app.area} Acres</span>
-                                    <span>•</span>
-                                    <span>{new Date(app.submittedAt!).toLocaleDateString()}</span>
+                    {myApplications.map((app) => {
+                        // --- LIVE MATH LOGIC ---
+                        // 1. Calculate time passed since submission
+                        const submittedTime = new Date(app.submittedAt!).getTime();
+                        const secondsElapsed = Math.floor((currentTime - submittedTime) / 1000);
+                        
+                        // 2. Calculate Tokens (1 token per 60 seconds)
+                        // If status is not approved, we show 0
+                        const pendingTokens = app.status === 'APPROVED' ? Math.floor(secondsElapsed / 60) : 0;
+                        
+                        // 3. Calculate Price (Pending * 20 POL)
+                        const currentPrice = pendingTokens * 20;
+
+                        return (
+                            <div key={app.id} className="bg-anirvan-card border border-white/10 rounded-xl p-6 hover:border-white/20 transition-colors animate-fade-in">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white">{app.ownerName}</h3>
+                                        <div className="flex gap-4 mt-2 text-xs text-anirvan-muted font-mono">
+                                            <span>ID: {app.id}</span>
+                                            <span>•</span>
+                                            <span>{app.area} Acres</span>
+                                            <span>•</span>
+                                            <span>{new Date(app.submittedAt!).toLocaleDateString()}</span>
+                                        </div>
+                                    </div>
+                                    <div className={`px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 border ${
+                                        app.status === 'APPROVED' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                                        'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                                    }`}>
+                                        {app.status === 'APPROVED' ? <CheckCircle2 className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                                        {app.status}
+                                    </div>
                                 </div>
+
+                                {/* --- NEW: TOKEN & PRICE SECTION (Like Enterprise View) --- */}
+                                {app.status === 'APPROVED' && (
+                                    <div className="bg-black/30 rounded-lg p-4 border border-white/5 flex flex-col md:flex-row gap-6">
+                                        
+                                        {/* Accumulated Tokens */}
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 text-anirvan-muted text-xs mb-1">
+                                                <TrendingUp className="h-3 w-3" /> Accumulated Tokens
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-2xl font-bold text-white">{pendingTokens}</span>
+                                                <span className="bg-lime-500/10 border border-lime-500/50 text-lime-400 text-xs px-2 py-0.5 rounded flex items-center gap-1">
+                                                    <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-lime-400"></span> Live
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Current Value */}
+                                        <div className="flex-1 border-l border-white/10 pl-6">
+                                            <div className="flex items-center gap-2 text-anirvan-muted text-xs mb-1">
+                                                <Coins className="h-3 w-3" /> Current Value (POL)
+                                            </div>
+                                            <div className="text-2xl font-mono font-bold text-anirvan-accent">
+                                                {currentPrice} POL
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <div className={`px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 border ${
-                                app.status === 'APPROVED' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
-                                app.status === 'REJECTED' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
-                                'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                            }`}>
-                                {app.status === 'APPROVED' && <CheckCircle2 className="h-4 w-4" />}
-                                {app.status === 'PENDING' && <Clock className="h-4 w-4" />}
-                                {app.status === 'REJECTED' && <XCircle className="h-4 w-4" />}
-                                {app.status}
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>
@@ -318,7 +361,6 @@ const LandownerView = () => {
     </div>
   );
   
-  // Helper for file handling (re-used)
   function handleFile(file: File) {
     if (file.type !== 'application/pdf') return alert("PDF only");
     setSelectedFile(file);
