@@ -1,3 +1,5 @@
+#this script obtains an OAuth2 bearer token using client credentials and is just a personal use test file
+
 import requests
 import json
 import base64
