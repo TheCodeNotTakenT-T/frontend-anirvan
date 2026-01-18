@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, MapPin, RefreshCcw, Inbox, ExternalLink, Loader2, AlertTriangle, Play, ShieldCheck, XCircle, Image as ImageIcon, FileText, Film, X } from 'lucide-react';
+import { CheckCircle2, MapPin, RefreshCcw, Inbox, ExternalLink, Loader2, AlertTriangle, Play, ShieldCheck, XCircle, Image as ImageIcon, FileText, Film, X, Clock } from 'lucide-react';
 import SentinelValidator from '../components/SentinelValidator';
 import { LandApplication } from '../types';
 import { supabase } from '../supabaseClient';
@@ -15,10 +15,14 @@ const ValidationView = () => {
   const [selectedApp, setSelectedApp] = useState<LandApplication | null>(null);
   const [txnHash, setTxnHash] = useState<string | null>(null);
   const [showGallery, setShowGallery] = useState(false);
+  const [processingDb, setProcessingDb] = useState(false);
 
   // WAGMI Hooks
   const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  // CONSTANTS
+  const REVERIFICATION_PERIOD_MS = 5*24*60*60 * 1000; // 5 Days in Milliseconds
 
   // Load Queue
   const loadApplications = async () => {
@@ -37,33 +41,81 @@ const ValidationView = () => {
             polygonPath: row.polygon_path,
             status: row.status,
             walletAddress: row.wallet_address,
-            pdfName: row.document_url, // Maps document_url to pdfName
-            images: Array.isArray(row.images) ? row.images : [], // Ensures images is always an array
-            videoName: row.video_url, // Maps video_url to videoName
-            submittedAt: row.submitted_at
+            pdfName: row.document_url, 
+            images: Array.isArray(row.images) ? row.images : [], 
+            videoName: row.video_url, 
+            submittedAt: row.submitted_at,
+            lastVerifiedAt: row.last_verified_at // Map from DB
         }));
-        setApplications(apps.filter((a: any) => a.status === 'PENDING'));
+
+        // FILTER LOGIC:
+        // 1. Status is PENDING
+        // 2. OR Status is APPROVED but time since last check > 5 days
+        const queue = apps.filter((a: LandApplication) => {
+            if (a.status === 'PENDING') return true;
+            if (a.status === 'APPROVED') {
+                // If lastVerifiedAt exists, use it. Otherwise fallback to submittedAt
+                const lastCheckTime = a.lastVerifiedAt ? new Date(a.lastVerifiedAt).getTime() : new Date(a.submittedAt).getTime();
+                const now = Date.now();
+                return (now - lastCheckTime) > REVERIFICATION_PERIOD_MS;
+            }
+            return false;
+        });
+
+        setApplications(queue);
     }
   };
 
   useEffect(() => { if(isConnected) loadApplications(); }, [isConnected]);
   useEffect(() => { if (hash) setTxnHash(hash); }, [hash]);
   
+  // Effect: Handle Blockchain Confirmation (For Initial Registration)
   useEffect(() => {
     if (isConfirmed && selectedApp) {
-        // Update DB only after blockchain confirmation
-        supabase.from('land_applications').update({ status: 'APPROVED' }).eq('survey_number', selectedApp.id).then(() => {
-            alert("Land Registered On-Chain!");
-            setTxnHash(null);
-            setSelectedApp(null);
-            loadApplications();
-        });
+        // Blockchain success -> Update DB
+        finalizeApproval();
     }
   }, [isConfirmed]);
+
+  // Helper to update Supabase
+  const finalizeApproval = async () => {
+    if (!selectedApp) return;
+    setProcessingDb(true);
+
+    const updates = {
+        status: 'APPROVED',
+        last_verified_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+        .from('land_applications')
+        .update(updates)
+        .eq('survey_number', selectedApp.id);
+    
+    setProcessingDb(false);
+
+    if (!error) {
+        alert(selectedApp.status === 'APPROVED' ? "Re-verification Successful!" : "Land Registered On-Chain!");
+        setTxnHash(null);
+        setSelectedApp(null);
+        loadApplications();
+    } else {
+        alert("Database update failed.");
+    }
+  };
 
   const handleApprove = () => {
       if (!selectedApp?.walletAddress) return alert("No wallet linked to this application");
       
+      // CASE 1: RE-VERIFICATION (Already Approved, just expired)
+      // We do NOT write to blockchain again, just update DB timestamp
+      if (selectedApp.status === 'APPROVED') {
+          finalizeApproval();
+          return;
+      }
+
+      // CASE 2: INITIAL REGISTRATION
+      // We must write to blockchain first
       writeContract({
           address: CONTRACT_ADDRESS,
           abi: CONTRACT_ABI,
@@ -109,14 +161,22 @@ const ValidationView = () => {
         {/* Left: Queue */}
         <div className="col-span-3 bg-anirvan-card border border-white/10 rounded-xl overflow-hidden flex flex-col">
             <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
-                <span className="font-bold text-anirvan-muted uppercase text-xs tracking-widest">Pending ({applications.length})</span>
+                <span className="font-bold text-anirvan-muted uppercase text-xs tracking-widest">Action Queue ({applications.length})</span>
                 <button onClick={loadApplications}><RefreshCcw className="h-4 w-4 text-white hover:text-anirvan-accent"/></button>
             </div>
             <div className="overflow-y-auto p-2 space-y-2">
                 {applications.map(app => (
                     <div key={app.id} onClick={() => { setSelectedApp(app); setShowGallery(false); }} className={`p-3 rounded-lg cursor-pointer border ${selectedApp?.id === app.id ? 'bg-anirvan-primary/10 border-anirvan-accent' : 'bg-black/20 border-white/5'}`}>
-                        <div className="font-bold text-white text-sm">{app.ownerName}</div>
+                        <div className="flex justify-between items-start">
+                            <div className="font-bold text-white text-sm">{app.ownerName}</div>
+                            {app.status === 'APPROVED' && (
+                                <span className="inline-flex items-center" aria-label="Re-verification Required">
+                                    <Clock className="h-3 w-3 text-yellow-500" />
+                                </span>
+                            )}
+                        </div>
                         <div className="text-[10px] text-anirvan-muted font-mono">{app.id}</div>
+                        {app.status === 'APPROVED' && <div className="text-[9px] text-yellow-500/80 mt-1 uppercase font-bold tracking-wider">⚠ Review Required</div>}
                     </div>
                 ))}
             </div>
@@ -129,7 +189,14 @@ const ValidationView = () => {
                     {/* Header Action Bar */}
                     <div className="bg-anirvan-card border border-white/10 rounded-xl p-4 flex justify-between items-center shadow-lg">
                         <div>
-                            <h2 className="text-xl font-bold text-white">{selectedApp.ownerName}</h2>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-xl font-bold text-white">{selectedApp.ownerName}</h2>
+                                {selectedApp.status === 'APPROVED' && (
+                                    <span className="px-2 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 text-[10px] uppercase font-bold tracking-wider">
+                                        Re-Verification
+                                    </span>
+                                )}
+                            </div>
                             <div className="text-xs text-anirvan-muted flex gap-4 mt-1">
                                 <span className="flex items-center gap-1"><MapPin className="h-3 w-3"/> {selectedApp.area} Acres</span> 
                                 <span>{selectedApp.species}</span> 
@@ -143,9 +210,16 @@ const ValidationView = () => {
                                 <XCircle className="h-3.5 w-3.5"/> Reject
                             </button>
 
-                            <button onClick={handleApprove} disabled={isPending || isConfirming} className="bg-anirvan-primary text-anirvan-dark px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-anirvan-accent transition-colors">
-                                {(isPending || isConfirming) ? <Loader2 className="animate-spin h-3.5 w-3.5"/> : <Play className="h-3.5 w-3.5"/>}
-                                {isPending ? 'Check Wallet' : isConfirming ? 'Minting...' : 'Approve Registry'}
+                            <button 
+                                onClick={handleApprove} 
+                                disabled={isPending || isConfirming || processingDb} 
+                                className="bg-anirvan-primary text-anirvan-dark px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-anirvan-accent transition-colors disabled:opacity-50"
+                            >
+                                {(isPending || isConfirming || processingDb) ? <Loader2 className="animate-spin h-3.5 w-3.5"/> : <Play className="h-3.5 w-3.5"/>}
+                                {isPending ? 'Check Wallet' : 
+                                 isConfirming ? 'Minting...' : 
+                                 processingDb ? 'Updating DB...' : 
+                                 selectedApp.status === 'APPROVED' ? 'Confirm Check' : 'Approve Registry'}
                             </button>
                         </div>
                     </div>

@@ -1,3 +1,4 @@
+
 export type ViewState = 'landing' | 'landowner' | 'enterprise' | 'validation';
 
 export interface Transaction {
@@ -39,9 +40,9 @@ export interface LandApplication {
   ownerName: string;
   species: string;
   area: number;
-  pdfName: string; // Used for document_url
+  pdfName: string; 
   images: string[];
-  videoName?: string; // Used for video_url
+  videoName?: string; 
   coordinates: {
     lat: number;
     lon: number;
@@ -49,6 +50,7 @@ export interface LandApplication {
   polygonPath?: number[][]; 
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   submittedAt: string;
+  lastVerifiedAt?: string; // <--- NEW FIELD
   walletAddress?: string;
   contractId?: number;
 }

@@ -62,38 +62,49 @@ const EnterpriseView = () => {
     })),
   });
 
-  // 3. Real-Time Ticker Logic
+  // 3. Real-Time Ticker Logic (SYNCHRONIZED WITH LANDOWNER LOGIC)
   useEffect(() => {
-    if (!contractData) return;
+    if (!contractData || projects.length === 0) return;
 
     const interval = setInterval(() => {
-      const now = Math.floor(Date.now() / 1000);
+      const now = Date.now(); // Current time in ms
       const newMarketData: Record<number, ProjectMarketData> = {};
 
       contractData.forEach((result, index) => {
         const pData = result.result as any; 
         if (!pData) return;
 
-        // SC Return: [landowner, lastClaimTime, surveyNumber, isRegistered]
-        const lastClaim = Number(pData[1]); 
-        const elapsed = now - lastClaim;
+        // --- UPDATED CALCULATION START ---
+        // Instead of contract lastClaimTime, we use project.submittedAt from Supabase
+        // to match the LandownerView logic exactly.
+        const project = projects[index];
         
-        // Accumulation logic: 1 Token every 60 seconds (for demo)
-        const pending = Math.floor(elapsed / 60); 
-        const cost = pending * 20; // 20 POL per Token
+        if (project && project.submittedAt) {
+            const submittedTime = new Date(project.submittedAt).getTime();
+            
+            // Calculate elapsed seconds from submission (Project Start)
+            const secondsElapsed = Math.floor((now - submittedTime) / 1000);
+            
+            // 1 Token every 60 seconds
+            const pending = Math.floor(secondsElapsed / 60);
+            
+            // 20 POL per Token
+            const cost = pending * 20;
 
-        newMarketData[index] = {
-          lastClaimTime: BigInt(lastClaim),
-          pendingTokens: pending,
-          costInPol: cost
-        };
+            newMarketData[index] = {
+              lastClaimTime: BigInt(0), // Placeholder, not used for calc anymore
+              pendingTokens: pending,
+              costInPol: cost
+            };
+        }
+        // --- UPDATED CALCULATION END ---
       });
 
       setMarketData(newMarketData);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [contractData]);
+  }, [contractData, projects]); // Added projects to dependency array
 
 
   const handleBuy = (index: number) => {
