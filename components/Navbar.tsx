@@ -55,7 +55,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView }) => {
           </div>
 
            <div className="hidden md:flex items-center gap-3">
-            <div className="relative transition-all duration-300 w-48 focus-within:w-64 group">
+            <div className="relative transition-all duration-300 w-64 focus-within:w-108 group">
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-anirvan-muted group-focus-within:text-anirvan-accent z-10" />
                 <input 
     type="text" 
