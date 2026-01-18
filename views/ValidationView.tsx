@@ -6,7 +6,62 @@ import { LandApplication } from '../types';
 import { supabase } from '../supabaseClient';
 import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../src/wagmi'; // Fixed import path (removed src/)
+// --- CONTRACT CONFIGURATION (Updated from User) ---
+export const CONTRACT_ADDRESS = "0xE5355D85ce17dF9F6eB2e39c0ec63591B2955243"; 
+
+export const CONTRACT_ABI = [
+  {
+    "inputs": [
+      {"internalType": "address","name": "_landowner","type": "address"},
+      {"internalType": "string","name": "_surveyNumber","type": "string"}
+    ],
+    "name": "registerLand",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256","name": "projectId","type": "uint256"}],
+    "name": "buyPendingCredits",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256","name": "projectId","type": "uint256"}],
+    "name": "claimAccumulatedCredits",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256","name": "projectId","type": "uint256"}],
+    "name": "getPendingTokens",
+    "outputs": [{"internalType": "uint256","name": "","type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256","name": "","type": "uint256"}],
+    "name": "projects",
+    "outputs": [
+      {"internalType": "address","name": "landowner","type": "address"},
+      {"internalType": "uint256","name": "lastClaimTime","type": "uint256"},
+      {"internalType": "string","name": "surveyNumber","type": "string"},
+      {"internalType": "bool","name": "isRegistered","type": "bool"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "projectCount",
+    "outputs": [{"internalType": "uint256","name": "","type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
+
 
 const ValidationView = () => {
   const [applications, setApplications] = useState<LandApplication[]>([]);
@@ -15,11 +70,11 @@ const ValidationView = () => {
   const [txnHash, setTxnHash] = useState<string | null>(null);
 
   // WAGMI
-  const { isConnected, address } = useAccount();
+  const { isConnected } = useAccount();
   const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
-  // 1. Fetch Applications
+  // 1. Fetch Applications (Including Wallet Address)
   const loadApplications = async () => {
     setLoading(true);
     try {
@@ -42,7 +97,8 @@ const ValidationView = () => {
           status: row.status,
           submittedAt: row.submitted_at,
           images: [],
-          videoName: ''
+          videoName: '',
+          walletAddress: row.wallet_address // <--- Crucial: Read the Landowner's wallet
         }));
         setApplications(mappedApps.filter(app => app.status === 'PENDING'));
         if (selectedApp) {
@@ -65,7 +121,7 @@ const ValidationView = () => {
         const finalize = async () => {
             // Update status to APPROVED in Supabase
             await supabase.from('land_applications').update({ status: 'APPROVED' }).eq('survey_number', selectedApp.id);
-            alert("Success! Land Registered. Token accumulation started.");
+            alert("Success! Land Registered on Blockchain. Token accumulation started.");
             setTxnHash(null);
             loadApplications();
             setSelectedApp(null);
@@ -87,19 +143,24 @@ const ValidationView = () => {
   const handleApprove = async () => {
     if (!selectedApp) return;
     if (!isConnected) {
-        alert("Please connect wallet first.");
+        alert("Please connect Validator wallet first.");
+        return;
+    }
+    
+    // Check if the application actually has a wallet address associated
+    if (!selectedApp.walletAddress) {
+        alert("Error: This application has no associated Wallet Address. Cannot register on-chain.");
         return;
     }
 
     try {
+        console.log("Registering Land for:", selectedApp.walletAddress);
         writeContract({
             address: CONTRACT_ADDRESS,
             abi: CONTRACT_ABI,
             functionName: 'registerLand',
-            // Pass the LANDOWNER address. 
-            // For testing/hackathon, we use 'address!' (the connected validator) so you can test buying your own credits easily.
-            // In prod, this would be: args: [selectedApp.ownerWalletAddress]
-            args: [address!] 
+            // Pass the LANDOWNER address from Supabase and the Survey Number ID
+            args: [selectedApp.walletAddress as `0x${string}`, selectedApp.id] 
         });
     } catch (e) {
         console.error("Contract Error:", e);
@@ -160,7 +221,7 @@ const ValidationView = () => {
                     {writeError && (
                         <div className="text-xs text-red-200 p-3 border border-red-500/20 bg-red-900/50 rounded flex gap-2 items-center">
                             <AlertTriangle className="h-4 w-4 text-red-400"/> 
-                            <span>{writeError.message.includes("User rejected") ? "Transaction rejected." : "Contract Error. Ensure address in wagmi.ts matches deployed contract."}</span>
+                            <span>{writeError.message.includes("User rejected") ? "Transaction rejected." : "Contract Error. Ensure you are connected to Polygon Amoy."}</span>
                         </div>
                     )}
 

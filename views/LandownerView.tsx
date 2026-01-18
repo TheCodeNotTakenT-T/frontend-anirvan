@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, DragEvent } from 'react';
-import { PencilRuler, Upload, Search, FileText, CheckCircle2, Clock, XCircle, Loader2 } from 'lucide-react';
-import { supabase } from '../supabaseClient'; // Import Supabase client
+import { PencilRuler, Upload, Search, FileText, CheckCircle2, Clock, XCircle, Loader2, Wallet } from 'lucide-react';
+import { supabase } from '../supabaseClient'; 
+
+// --- WAGMI IMPORTS ---
+import { useAccount } from 'wagmi';
 
 // --- ARCGIS IMPORTS ---
 import Map from "@arcgis/core/Map";
@@ -16,18 +19,20 @@ import { LandApplication } from '../types';
 
 const LandownerView = () => {
     
+  // --- WAGMI HOOKS ---
+  const { address, isConnected } = useAccount();
+
   // --- STATE DEFINITIONS ---
   const [mode, setMode] = useState<'register' | 'dashboard'>('register');
   const [step, setStep] = useState(1);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const speciesOptions = ["Native Hardwood", "Bamboo", "Fruit Bearing"];
-  const [isDragging, setIsDragging] = useState(false);// New State for Step 4 Media
+  const [isDragging, setIsDragging] = useState(false);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
-  
   // Form Data
   const [formData, setFormData] = useState<Partial<LandApplication>>({
     ownerName: '',
@@ -37,10 +42,8 @@ const LandownerView = () => {
     pdfName: ''
   });
   
-  // Added State for Supabase Logic
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [coordinates, setCoordinates] = useState<{lat: number, lon: number} | null>(null);
   const [polygonRings, setPolygonRings] = useState<number[][]>([]);
   const [searchId, setSearchId] = useState('');
@@ -55,25 +58,23 @@ const LandownerView = () => {
   const isStep1Valid = formData.ownerName && formData.ownerName.trim() !== '' && 
                        formData.id && formData.id.trim() !== '';
 
-  const isStep2Valid = !!selectedFile; // Changed to check for actual file object
+  const isStep2Valid = !!selectedFile; 
 
   const isStep3Valid = !!coordinates;
 
-  const isStep4Valid = selectedImages.length > 0 || !!selectedVideo;
+  // Added check for Wallet Connection in Step 4
+  const isStep4Valid = (selectedImages.length > 0 || !!selectedVideo) && isConnected;
 
-  // --- FILE HANDLING (Updated with Validation) ---
+  // --- FILE HANDLING ---
   const handleFile = (file: File) => {
-    // 1. Validate Type
     if (file.type !== 'application/pdf') {
       alert("Only PDF files are allowed.");
       return;
     }
-    // 2. Validate Size (5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert("File size exceeds 5MB limit.");
       return;
     }
-    
     setSelectedFile(file);
     setFormData(prev => ({ ...prev, pdfName: file.name }));
   };
@@ -107,7 +108,7 @@ const LandownerView = () => {
       const view = new MapView({
         container: mapDiv.current,
         map: map,
-        center: [76.2711, 10.8505],
+        center: [76.2711, 10.8505], // Set to local region
         zoom: 16
       });
 
@@ -158,6 +159,11 @@ const LandownerView = () => {
   // --- SUPABASE SUBMISSION LOGIC ---
   const handleSubmit = async () => {
     if (!formData.id || !coordinates || !selectedFile) return;
+    if (!isConnected || !address) {
+        alert("Please connect your wallet to submit.");
+        return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -166,7 +172,7 @@ const LandownerView = () => {
         await supabase.storage.from('land_documents').upload(docName, selectedFile);
         const { data: { publicUrl: docUrl } } = supabase.storage.from('land_documents').getPublicUrl(docName);
 
-        // 2. Upload Images (New)
+        // 2. Upload Images
         const imageUrls: string[] = [];
         for (const img of selectedImages) {
             const imgName = `${Date.now()}_img_${img.name.replace(/\s/g, '_')}`;
@@ -174,7 +180,7 @@ const LandownerView = () => {
             imageUrls.push(supabase.storage.from('land_documents').getPublicUrl(imgName).data.publicUrl);
         }
 
-        // 3. Upload Video (New)
+        // 3. Upload Video
         let videoUrl = '';
         if (selectedVideo) {
             const vidName = `${Date.now()}_vid_${selectedVideo.name.replace(/\s/g, '_')}`;
@@ -182,7 +188,7 @@ const LandownerView = () => {
             videoUrl = supabase.storage.from('land_documents').getPublicUrl(vidName).data.publicUrl;
         }
 
-        // 4. Insert Record
+        // 4. Insert Record (INCLUDING WALLET ADDRESS)
         const { error: insertError } = await supabase.from('land_applications').insert([
             {
                 full_name: formData.ownerName,
@@ -193,14 +199,15 @@ const LandownerView = () => {
                 document_url: docUrl,
                 coordinates: coordinates,
                 polygon_path: polygonRings,
-                images: imageUrls, // Added to DB insert
-                video_url: videoUrl  // Added to DB insert
+                images: imageUrls,
+                video_url: videoUrl,
+                wallet_address: address // <--- Important: Saving the connected wallet
             }
         ]);
 
         if (insertError) throw insertError;
 
-        alert("Application Successfully Submitted with Media Proof!");
+        alert("Application Successfully Submitted!");
         setMode('dashboard');
         setSearchId(formData.id!);
         
@@ -229,19 +236,19 @@ const LandownerView = () => {
         setMyApplication(null);
         alert("Application not found.");
     } else {
-        // Map Database columns back to Frontend Type
         const app: LandApplication = {
             id: data.survey_number,
             ownerName: data.full_name,
             species: data.tree_species,
             area: data.area_acres,
-            pdfName: 'Document.pdf', // Or extract from data.document_url
+            pdfName: 'Document.pdf',
             coordinates: data.coordinates,
             polygonPath: data.polygon_path,
             status: data.status,
             submittedAt: data.submitted_at,
             images: [],
-            videoName: ''
+            videoName: '',
+            walletAddress: data.wallet_address // Ensure type handles this
         };
         setMyApplication(app);
     }
@@ -264,6 +271,7 @@ const LandownerView = () => {
                 ))}
             </div>
 
+            {/* STEP 1: Land Details */}
             {step === 1 && (
                 <div className="bg-anirvan-card border border-white/10 rounded-xl p-8 animate-fade-in shadow-2xl">
                     <h2 className="text-2xl font-bold text-white mb-6 tracking-tight">1. Land Details</h2>
@@ -334,6 +342,7 @@ const LandownerView = () => {
                 </div>
             )}
 
+            {/* STEP 2: Verification Documents */}
             {step === 2 && (
                 <div className="bg-anirvan-card border border-white/10 rounded-xl p-6 animate-fade-in text-center max-w-2xl mx-auto">
                     <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">2. Verification Documents</h2>
@@ -367,6 +376,7 @@ const LandownerView = () => {
                 </div>
             )}
 
+            {/* STEP 3: Map */}
             {step === 3 && (
                 <div className="animate-fade-in space-y-4">
                     <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg flex gap-3">
@@ -381,35 +391,33 @@ const LandownerView = () => {
                         <button onClick={() => setStep(2)} className="px-6 py-3 text-anirvan-muted">Back</button>
                         
                        <button 
-    onClick={() => setStep(4)} 
-    disabled={!isStep3Valid} 
-    className={`flex-1 font-bold py-3 rounded-lg transition-all
-        ${isStep3Valid
-            ? 'bg-anirvan-primary text-anirvan-dark hover:bg-anirvan-accent cursor-pointer'
-            : 'bg-white/10 text-white/30 cursor-not-allowed'
-        }`}
->
-    Next Step
-</button>
+                            onClick={() => setStep(4)} 
+                            disabled={!isStep3Valid} 
+                            className={`flex-1 font-bold py-3 rounded-lg transition-all
+                                ${isStep3Valid
+                                    ? 'bg-anirvan-primary text-anirvan-dark hover:bg-anirvan-accent cursor-pointer'
+                                    : 'bg-white/10 text-white/30 cursor-not-allowed'
+                                }`}
+                        >
+                            Next Step
+                        </button>
                     </div>
                 </div>
             )}
 
+            {/* STEP 4: Media & Final Submit */}
             {step === 4 && (
                 <div className="bg-anirvan-card border border-white/10 rounded-xl p-8 animate-fade-in shadow-2xl space-y-8">
                     <div className="text-center">
-                        <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">4. Media Evidence</h2>
-                        <p className="text-anirvan-muted text-sm">Provide visual proof of the site and planting progress</p>
+                        <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">4. Media Evidence & Submit</h2>
+                        <p className="text-anirvan-muted text-sm">Provide visual proof of the site</p>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-8 items-start">
                         {/* Image Upload Area */}
                         <div className="flex flex-col h-full">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-anirvan-muted mb-3 flex justify-between items-center px-1">
-                                Photos 
-                                <span className={selectedImages.length === 5 ? "text-anirvan-accent" : ""}>
-                                    {selectedImages.length}/5
-                                </span>
+                                Photos <span className={selectedImages.length === 5 ? "text-anirvan-accent" : ""}>{selectedImages.length}/5</span>
                             </label>
                             
                             <div 
@@ -425,8 +433,6 @@ const LandownerView = () => {
                                 <p className="text-white text-sm font-bold">Upload Images</p>
                                 <p className="text-[10px] text-anirvan-muted mt-1.5 uppercase tracking-tighter">JPG, PNG (Max 2MB each)</p>
                             </div>
-
-                            {/* Thumbnail Preview Row - Fixed height to prevent jumping */}
                             <div className="flex flex-wrap gap-2 mt-4 min-h-[48px]">
                                 {selectedImages.map((img, i) => (
                                     <div key={i} className="group relative h-12 w-12 rounded-lg border border-white/20 overflow-hidden shadow-lg">
@@ -434,9 +440,7 @@ const LandownerView = () => {
                                         <button 
                                             onClick={() => setSelectedImages(selectedImages.filter((_, idx) => idx !== i))} 
                                             className="absolute inset-0 bg-red-500/90 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity text-xs font-bold"
-                                        >
-                                            ✕
-                                        </button>
+                                        >✕</button>
                                     </div>
                                 ))}
                             </div>
@@ -444,10 +448,7 @@ const LandownerView = () => {
 
                         {/* Video Upload Area */}
                         <div className="flex flex-col h-full">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-anirvan-muted mb-3 px-1">
-                                Site Walkthrough
-                            </label>
-                            
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-anirvan-muted mb-3 px-1">Site Walkthrough</label>
                             <div 
                                 onClick={() => !selectedVideo && videoInputRef.current?.click()}
                                 className={`border-2 border-dashed rounded-xl p-6 transition-all flex flex-col items-center justify-center text-center min-h-[180px] flex-1 ${!selectedVideo ? 'border-white/10 hover:border-anirvan-accent/50 cursor-pointer hover:bg-white/5' : 'border-anirvan-accent/30 bg-anirvan-primary/5'}`}
@@ -467,27 +468,34 @@ const LandownerView = () => {
                                     </>
                                 )}
                             </div>
-                            {/* Empty div to match image preview height for alignment */}
                             <div className="mt-4 min-h-[48px]"></div>
                         </div>
                     </div>
-
+                    
+                    {/* WALLET & SUBMIT SECTION */}
                     <div className="flex gap-4 pt-4 items-center">
                         <button onClick={() => setStep(3)} className="px-6 py-3 text-anirvan-muted hover:text-white transition-colors font-bold text-sm">
                             Back
                         </button>
+
                         <button 
-    onClick={handleSubmit} 
-    disabled={!isStep4Valid || isSubmitting} 
-    className={`flex-1 font-black uppercase tracking-[0.2em] py-4 rounded-xl transition-all flex justify-center items-center gap-3 shadow-xl active:scale-[0.98]
-        ${isStep4Valid 
-            ? 'bg-anirvan-primary hover:bg-anirvan-accent text-anirvan-dark shadow-lime-900/20 cursor-pointer' 
-            : 'bg-white/10 text-white/30 cursor-not-allowed shadow-none'
-        } ${isSubmitting ? 'opacity-50' : ''}`}
->
-    {isSubmitting && <Loader2 className="animate-spin h-5 w-5" />}
-    {isSubmitting ? 'Processing Uploads...' : 'Finish & Submit Registration'}
-</button>
+                            onClick={handleSubmit} 
+                            disabled={!isStep4Valid || isSubmitting} 
+                            className={`flex-1 font-black uppercase tracking-[0.2em] py-4 rounded-xl transition-all flex justify-center items-center gap-3 shadow-xl active:scale-[0.98]
+                                ${isStep4Valid 
+                                    ? 'bg-anirvan-primary hover:bg-anirvan-accent text-anirvan-dark shadow-lime-900/20 cursor-pointer' 
+                                    : 'bg-white/10 text-white/30 cursor-not-allowed shadow-none'
+                                } ${isSubmitting ? 'opacity-50' : ''}`}
+                        >
+                            {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : null}
+                            {!isConnected ? (
+                                <span className="flex items-center gap-2"><Wallet className="h-4 w-4"/> Connect Wallet to Submit</span>
+                            ) : isSubmitting ? (
+                                'Processing...'
+                            ) : (
+                                'Finish & Submit Registration'
+                            )}
+                        </button>
                     </div>
                 </div>
             )}
@@ -503,7 +511,10 @@ const LandownerView = () => {
                 {myApplication && (
                     <div className="border-t border-white/10 pt-6 animate-fade-in">
                         <div className="flex justify-between items-start mb-4">
-                            <div><h3 className="text-xl font-bold text-white">{myApplication.ownerName}</h3><p className="text-sm text-anirvan-muted">Survey: {myApplication.id}</p></div>
+                            <div>
+                                <h3 className="text-xl font-bold text-white">{myApplication.ownerName}</h3>
+                                <p className="text-sm text-anirvan-muted">Survey: {myApplication.id}</p>
+                            </div>
                             <div className={`px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 ${myApplication.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' : myApplication.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                                 {myApplication.status === 'APPROVED' && <CheckCircle2 className="h-4 w-4" />}
                                 {myApplication.status === 'PENDING' && <Clock className="h-4 w-4" />}

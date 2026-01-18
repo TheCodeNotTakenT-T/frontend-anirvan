@@ -34,18 +34,14 @@ export interface ValidationRequest {
   gps: { lat: number; lng: number };
 }
 
-// types.ts - Update the LandApplication interface
-// types.ts
 export interface LandApplication {
   id: string; 
   ownerName: string;
   species: string;
   area: number;
   pdfName: string;
-  // NEW FIELDS
   images: string[];
   videoName?: string;
-  // ... rest of existing fields
   coordinates: {
     lat: number;
     lon: number;
@@ -53,4 +49,7 @@ export interface LandApplication {
   polygonPath?: number[][]; 
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   submittedAt: string;
+  // NEW FIELDS
+  walletAddress?: string; // Links to Supabase owner_wallet
+  contractId?: number;    // Links to Smart Contract ID
 }
