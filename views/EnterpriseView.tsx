@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, ShieldCheck, Loader2, MapPin, Clock } from 'lucide-react';
-import { useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
+// UPDATED: Imported useReadContracts (plural)
+import { useWriteContract, useReadContracts, useWaitForTransactionReceipt } from 'wagmi';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../src/wagmi';
 import { supabase } from '../supabaseClient';
 import { LandApplication } from '../types';
@@ -50,26 +51,37 @@ const EnterpriseView = () => {
     fetchApproved();
   }, []);
 
-  // 2. Fetch Blockchain Data (Start Times)
-  // In a real app, use useReadContracts (plural) for bulk fetching. 
-  // Here we simulate fetching for the first few items for the demo.
-  const { data: project0Data } = useReadContract({
-    address: CONTRACT_ADDRESS, abi: CONTRACT_ABI, functionName: 'projects', args: [BigInt(0)],
-  });
-  const { data: project1Data } = useReadContract({
-    address: CONTRACT_ADDRESS, abi: CONTRACT_ABI, functionName: 'projects', args: [BigInt(1)],
+  // 2. Fetch Blockchain Data (Start Times) - DYNAMIC VERSION
+  // This hook automatically creates a contract call for every project in the 'projects' array.
+  // It assumes the index in the Supabase array matches the Project ID in the Smart Contract.
+  const { data: contractData } = useReadContracts({
+    contracts: projects.map((_, index) => ({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: CONTRACT_ABI,
+      functionName: 'projects',
+      args: [BigInt(index)], 
+    })),
   });
 
   // 3. The Live Ticker Logic
   useEffect(() => {
+    // Wait for contract data to load
+    if (!contractData) return;
+
     const interval = setInterval(() => {
       const now = Math.floor(Date.now() / 1000);
       const newMarketData: Record<number, ProjectMarketData> = {};
 
-      // Helper to calculate
-      const calc = (pData: any, idx: number) => {
+      // Iterate through ALL contract results dynamically
+      contractData.forEach((result, index) => {
+        // Wagmi v2 returns data in a 'result' property (or 'status'/'error')
+        // result.result is the actual return value from the smart contract function
+        const pData = result.result as any; 
+
         if (!pData) return;
-        const lastClaim = Number(pData[1]); // Index 1 is lastClaimTime
+
+        // Smart Contract returns: [landowner, lastClaimTime, surveyNumber, isRegistered]
+        const lastClaim = Number(pData[1]); 
         const elapsed = now - lastClaim;
         
         // DEMO SPEED: 1 Token every 60 seconds
@@ -78,21 +90,18 @@ const EnterpriseView = () => {
         // Cost: 20 POL per Token
         const cost = pending * 20;
 
-        newMarketData[idx] = {
+        newMarketData[index] = {
           lastClaimTime: BigInt(lastClaim),
           pendingTokens: pending,
           costInPol: cost
         };
-      };
+      });
 
-      calc(project0Data, 0);
-      calc(project1Data, 1);
-      
       setMarketData(newMarketData);
     }, 1000); // Update every second
 
     return () => clearInterval(interval);
-  }, [project0Data, project1Data]);
+  }, [contractData]); // Re-run whenever new blockchain data arrives
 
 
   const handleBuy = (index: number) => {
