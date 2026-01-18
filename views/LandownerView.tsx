@@ -28,7 +28,7 @@ const LandownerView = () => {
   // --- STATE ---
   const [mode, setMode] = useState<'register' | 'dashboard'>('register');
   const [step, setStep] = useState(1);
-  const [currentTime, setCurrentTime] = useState(Date.now()); // <--- NEW: For the live ticker
+  const [currentTime, setCurrentTime] = useState(Date.now());
   
   // Registration Form State
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -55,15 +55,13 @@ const LandownerView = () => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
-  // --- 1. LOGIN GATE: Fetch Dashboard Data on Connect ---
+  // --- 1. LOGIN GATE & DATA FETCH ---
   useEffect(() => {
     if (isConnected && address && mode === 'dashboard') {
         fetchMyApplications();
     }
   }, [isConnected, address, mode]);
 
-  // --- NEW: Live Ticker Effect ---
-  // This updates the 'currentTime' every second so the tokens go up in real-time
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
     return () => clearInterval(interval);
@@ -83,7 +81,7 @@ const LandownerView = () => {
               species: d.tree_species,
               area: d.area_acres,
               status: d.status,
-              submittedAt: d.submitted_at, // Vital for calculation
+              submittedAt: d.submitted_at, 
               walletAddress: d.wallet_address,
               images: d.images
           } as LandApplication));
@@ -194,8 +192,12 @@ const LandownerView = () => {
   // --- VIEW: CONNECTED ---
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Navigation Tabs */}
-      <div className="flex justify-between items-center mb-8">
+      
+      {/* LAYOUT CHANGE: 
+         Added 'max-w-4xl mx-auto' here so the buttons align 
+         perfectly with the cards below.
+      */}
+      <div className="max-w-4xl mx-auto flex justify-between items-center mb-8">
         <div className="bg-white/5 p-1 rounded-xl flex">
             <button onClick={() => setMode('register')} className={`px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${mode === 'register' ? 'bg-anirvan-primary text-white shadow-lg' : 'text-anirvan-muted hover:text-white'}`}>
                 <PlusCircle className="h-4 w-4"/> Register Land
@@ -204,6 +206,7 @@ const LandownerView = () => {
                 <LayoutDashboard className="h-4 w-4"/> My Dashboard
             </button>
         </div>
+        
         <div className="hidden md:flex items-center gap-3 bg-anirvan-dark border border-white/10 px-4 py-2 rounded-full">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
             <span className="text-xs font-mono text-anirvan-muted">{address?.slice(0,6)}...{address?.slice(-4)}</span>
@@ -212,11 +215,6 @@ const LandownerView = () => {
 
       {mode === 'register' ? (
         <div className="max-w-4xl mx-auto">
-            {/* ... (Keep your Registration UI exactly as it was, skipping for brevity) ... */}
-            {/* Note: I am not changing the Register Wizard code, assuming it is same as before. 
-                I am focusing on the Dashboard changes below. */}
-            
-            {/* Simplified Placeholder for Wizard (In real code, keep your Wizard here) */}
              <div className="flex items-center justify-between mb-8 max-w-lg mx-auto">
                {[1,2,3,4].map(i => (
                     <div key={i} className={`h-8 w-8 rounded-full border-2 flex items-center justify-center font-bold ${step >= i ? 'border-anirvan-accent text-anirvan-accent' : 'border-white/10 text-white/10'}`}>{i}</div>
@@ -276,7 +274,7 @@ const LandownerView = () => {
             )}
         </div>
       ) : (
-        // --- DASHBOARD VIEW (UPDATED FOR TOKEN VIEW) ---
+        // --- DASHBOARD VIEW ---
         <div className="max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold text-white mb-6">My Applications</h2>
             {isLoadingDashboard ? (
@@ -289,16 +287,9 @@ const LandownerView = () => {
             ) : (
                 <div className="grid gap-4">
                     {myApplications.map((app) => {
-                        // --- LIVE MATH LOGIC ---
-                        // 1. Calculate time passed since submission
                         const submittedTime = new Date(app.submittedAt!).getTime();
                         const secondsElapsed = Math.floor((currentTime - submittedTime) / 1000);
-                        
-                        // 2. Calculate Tokens (1 token per 60 seconds)
-                        // If status is not approved, we show 0
                         const pendingTokens = app.status === 'APPROVED' ? Math.floor(secondsElapsed / 60) : 0;
-                        
-                        // 3. Calculate Price (Pending * 20 POL)
                         const currentPrice = pendingTokens * 20;
 
                         return (
@@ -323,11 +314,8 @@ const LandownerView = () => {
                                     </div>
                                 </div>
 
-                                {/* --- NEW: TOKEN & PRICE SECTION (Like Enterprise View) --- */}
                                 {app.status === 'APPROVED' && (
                                     <div className="bg-black/30 rounded-lg p-4 border border-white/5 flex flex-col md:flex-row gap-6">
-                                        
-                                        {/* Accumulated Tokens */}
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2 text-anirvan-muted text-xs mb-1">
                                                 <TrendingUp className="h-3 w-3" /> Accumulated Tokens
@@ -339,8 +327,6 @@ const LandownerView = () => {
                                                 </span>
                                             </div>
                                         </div>
-
-                                        {/* Current Value */}
                                         <div className="flex-1 border-l border-white/10 pl-6">
                                             <div className="flex items-center gap-2 text-anirvan-muted text-xs mb-1">
                                                 <Coins className="h-3 w-3" /> Current Value (POL)
