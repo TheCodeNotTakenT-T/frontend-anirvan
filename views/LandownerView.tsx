@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, DragEvent } from 'react';
 import { 
   Upload, FileText, CheckCircle2, Clock, XCircle, 
   Loader2, Wallet, LayoutDashboard, PlusCircle, LogIn, 
-  TrendingUp, Coins 
+  TrendingUp, Coins, Image as ImageIcon, Film 
 } from 'lucide-react';
 import { supabase } from '../supabaseClient'; 
 
@@ -42,6 +42,11 @@ const LandownerView = () => {
   const [coordinates, setCoordinates] = useState<{lat: number, lon: number} | null>(null);
   const [polygonRings, setPolygonRings] = useState<number[][]>([]);
   
+  // Drag and Drop States
+  const [isDraggingDeed, setIsDraggingDeed] = useState(false);
+  const [isDraggingPhotos, setIsDraggingPhotos] = useState(false);
+  const [isDraggingVideo, setIsDraggingVideo] = useState(false);
+
   // UI State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
@@ -135,10 +140,49 @@ const LandownerView = () => {
         setStep(1);
         setSelectedImages([]);
         setSelectedVideo(null);
+        setSelectedFile(null);
+        setFormData(p => ({...p, pdfName: ''}));
     } catch (e: any) {
         alert(e.message);
     } finally {
         setIsSubmitting(false);
+    }
+  };
+
+  // --- DRAG AND DROP HELPERS ---
+  const handleDrag = (e: DragEvent, setState: (v: boolean) => void) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") setState(true);
+    else if (e.type === "dragleave") setState(false);
+  };
+
+  const handleDropImages = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingPhotos(false);
+    if (e.dataTransfer.files) {
+        const newImages = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+        setSelectedImages(prev => [...prev, ...newImages].slice(0, 5));
+    }
+  };
+
+  const handleDropVideo = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingVideo(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        const file = e.dataTransfer.files[0];
+        if (file.type.startsWith('video/')) setSelectedVideo(file);
+    }
+  };
+
+  const handleDropDeed = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingDeed(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleFile(e.dataTransfer.files[0]);
     }
   };
 
@@ -193,10 +237,6 @@ const LandownerView = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       
-      {/* LAYOUT CHANGE: 
-         Added 'max-w-4xl mx-auto' here so the buttons align 
-         perfectly with the cards below.
-      */}
       <div className="max-w-4xl mx-auto flex justify-between items-center mb-8">
         <div className="bg-white/5 p-1 rounded-xl flex">
             <button onClick={() => setMode('register')} className={`px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${mode === 'register' ? 'bg-anirvan-primary text-white shadow-lg' : 'text-anirvan-muted hover:text-white'}`}>
@@ -226,11 +266,23 @@ const LandownerView = () => {
                 <div className="bg-anirvan-card border border-white/10 rounded-xl p-8 shadow-2xl animate-fade-in">
                     <h2 className="text-2xl font-bold text-white mb-6">1. Land Details</h2>
                     <div className="space-y-4">
-                        <input type="text" placeholder="Full Name" className="w-full bg-anirvan-dark border border-white/10 rounded-lg p-3 text-white" value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} />
-                        <input type="text" placeholder="Survey Number (e.g. SRV-101)" className="w-full bg-anirvan-dark border border-white/10 rounded-lg p-3 text-white" value={formData.id} onChange={e => setFormData({...formData, id: e.target.value})} />
+                        <input type="text" placeholder="Full Name" className="w-full bg-anirvan-dark border border-white/10 rounded-lg p-3 text-white focus:border-anirvan-accent outline-none" value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} />
+                        <input type="text" placeholder="Survey Number (e.g. SRV-101)" className="w-full bg-anirvan-dark border border-white/10 rounded-lg p-3 text-white focus:border-anirvan-accent outline-none" value={formData.id} onChange={e => setFormData({...formData, id: e.target.value})} />
                         <div className="relative">
                              <button type="button" onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="w-full bg-anirvan-dark border border-white/10 rounded-lg p-3 text-white text-left flex justify-between">{formData.species} <span>▼</span></button>
-                             {isDropdownOpen && <div className="absolute z-10 w-full mt-2 bg-anirvan-dark border border-white/10 rounded-xl overflow-hidden">{speciesOptions.map(opt => <div key={opt} onClick={() => { setFormData({...formData, species: opt}); setIsDropdownOpen(false); }} className="px-4 py-3 text-white hover:bg-white/10 cursor-pointer">{opt}</div>)}</div>}
+                             {isDropdownOpen && (
+                                <div className="absolute z-10 w-full mt-2 bg-anirvan-dark border border-white/10 rounded-xl overflow-hidden shadow-2xl animate-fade-in">
+                                    {speciesOptions.map(opt => (
+                                        <div 
+                                            key={opt} 
+                                            onClick={() => { setFormData({...formData, species: opt}); setIsDropdownOpen(false); }} 
+                                            className="px-4 py-3 text-white hover:bg-anirvan-accent hover:text-anirvan-dark transition-colors cursor-pointer font-bold"
+                                        >
+                                            {opt}
+                                        </div>
+                                    ))}
+                                </div>
+                             )}
                         </div>
                         <button onClick={() => setStep(2)} disabled={!formData.ownerName || !formData.id} className="w-full bg-anirvan-primary text-anirvan-dark py-3 rounded-lg font-bold mt-4 disabled:opacity-50 disabled:cursor-not-allowed">Continue</button>
                     </div>
@@ -241,12 +293,21 @@ const LandownerView = () => {
             {step === 2 && (
                 <div className="bg-anirvan-card border border-white/10 rounded-xl p-8 text-center animate-fade-in">
                     <h2 className="text-2xl font-bold text-white mb-4">2. Upload Deed (PDF)</h2>
-                    <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-white/10 hover:border-anirvan-accent rounded-xl p-10 cursor-pointer">
+                    <div 
+                        onClick={() => fileInputRef.current?.click()} 
+                        onDragEnter={(e) => handleDrag(e, setIsDraggingDeed)}
+                        onDragOver={(e) => handleDrag(e, setIsDraggingDeed)}
+                        onDragLeave={(e) => handleDrag(e, setIsDraggingDeed)}
+                        onDrop={handleDropDeed}
+                        className={`border-2 border-dashed rounded-xl p-12 transition-all cursor-pointer ${
+                            isDraggingDeed ? 'border-anirvan-accent bg-anirvan-accent/5 scale-[1.02]' : 'border-white/10 hover:border-anirvan-accent'
+                        }`}
+                    >
                         <input type="file" ref={fileInputRef} className="hidden" accept="application/pdf" onChange={(e) => { if(e.target.files?.[0]) handleFile(e.target.files[0]) }} />
-                        <Upload className="h-10 w-10 text-white mx-auto mb-2"/>
-                        <p className="text-anirvan-muted">{formData.pdfName || "Click to Upload PDF"}</p>
+                        <Upload className={`h-12 w-12 mx-auto mb-4 transition-colors ${isDraggingDeed ? 'text-anirvan-accent' : 'text-white'}`}/>
+                        <p className="text-anirvan-muted font-medium">{formData.pdfName || "Click or Drag to Upload PDF"}</p>
                     </div>
-                    <div className="flex gap-4 mt-6"><button onClick={() => setStep(1)} className="text-white/50">Back</button><button onClick={() => setStep(3)} disabled={!selectedFile} className="flex-1 bg-anirvan-primary text-anirvan-dark py-3 rounded-lg font-bold disabled:opacity-50">Next</button></div>
+                    <div className="flex gap-4 mt-8"><button onClick={() => setStep(1)} className="text-white/50 hover:text-white transition-colors px-4">Back</button><button onClick={() => setStep(3)} disabled={!selectedFile} className="flex-1 bg-anirvan-primary text-anirvan-dark py-3 rounded-lg font-bold disabled:opacity-50">Next</button></div>
                 </div>
             )}
 
@@ -254,7 +315,7 @@ const LandownerView = () => {
             {step === 3 && (
                 <div className="animate-fade-in">
                      <div className="h-[400px] w-full bg-black rounded-xl overflow-hidden relative border border-white/10"><div ref={mapDiv} className="w-full h-full" /></div>
-                     <div className="flex gap-4 mt-4"><button onClick={() => setStep(2)} className="text-white/50">Back</button><button onClick={() => setStep(4)} disabled={!coordinates} className="flex-1 bg-anirvan-primary text-anirvan-dark py-3 rounded-lg font-bold disabled:opacity-50">Next</button></div>
+                     <div className="flex gap-4 mt-4"><button onClick={() => setStep(2)} className="text-white/50 hover:text-white transition-colors px-4">Back</button><button onClick={() => setStep(4)} disabled={!coordinates} className="flex-1 bg-anirvan-primary text-anirvan-dark py-3 rounded-lg font-bold disabled:opacity-50">Next</button></div>
                 </div>
             )}
 
@@ -262,14 +323,57 @@ const LandownerView = () => {
             {step === 4 && (
                 <div className="bg-anirvan-card border border-white/10 rounded-xl p-8 animate-fade-in">
                     <h2 className="text-2xl font-bold text-white mb-6">4. Evidence & Submit</h2>
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                        <div onClick={() => imageInputRef.current?.click()} className="border border-white/10 p-6 rounded-xl text-center cursor-pointer hover:bg-white/5"><Upload className="mx-auto mb-2 text-white"/><p className="text-sm text-anirvan-muted">Photos ({selectedImages.length})</p><input type="file" ref={imageInputRef} className="hidden" multiple accept="image/*" onChange={e => {if(e.target.files) setSelectedImages([...selectedImages, ...Array.from(e.target.files)])}}/></div>
-                        <div onClick={() => videoInputRef.current?.click()} className="border border-white/10 p-6 rounded-xl text-center cursor-pointer hover:bg-white/5"><Upload className="mx-auto mb-2 text-white"/><p className="text-sm text-anirvan-muted">{selectedVideo ? "Video Added" : "Add Video"}</p><input type="file" ref={videoInputRef} className="hidden" accept="video/*" onChange={e => {if(e.target.files?.[0]) setSelectedVideo(e.target.files[0])}}/></div>
+                    <div className="grid grid-cols-2 gap-6 mb-8">
+                        {/* Photo Upload Section */}
+                        <div 
+                            onClick={() => imageInputRef.current?.click()} 
+                            onDragEnter={(e) => handleDrag(e, setIsDraggingPhotos)}
+                            onDragOver={(e) => handleDrag(e, setIsDraggingPhotos)}
+                            onDragLeave={(e) => handleDrag(e, setIsDraggingPhotos)}
+                            onDrop={handleDropImages}
+                            className={`border-2 border-dashed p-8 rounded-xl text-center cursor-pointer transition-all ${
+                                isDraggingPhotos ? 'border-anirvan-accent bg-anirvan-accent/5 scale-[1.02]' : 'border-white/10 hover:bg-white/5'
+                            }`}
+                        >
+                            <ImageIcon className={`mx-auto mb-3 h-8 w-8 transition-colors ${isDraggingPhotos ? 'text-anirvan-accent' : 'text-white'}`}/>
+                            <p className="text-sm font-bold text-white mb-1">Photos ({selectedImages.length}/5)</p>
+                            <p className="text-[10px] text-anirvan-muted uppercase tracking-wider">Drag or click to add</p>
+                            <input type="file" ref={imageInputRef} className="hidden" multiple accept="image/*" onChange={e => {if(e.target.files) setSelectedImages(prev => [...prev, ...Array.from(e.target.files!)].slice(0, 5))}}/>
+                        </div>
+
+                        {/* Video Upload Section */}
+                        <div 
+                            onClick={() => videoInputRef.current?.click()} 
+                            onDragEnter={(e) => handleDrag(e, setIsDraggingVideo)}
+                            onDragOver={(e) => handleDrag(e, setIsDraggingVideo)}
+                            onDragLeave={(e) => handleDrag(e, setIsDraggingVideo)}
+                            onDrop={handleDropVideo}
+                            className={`border-2 border-dashed p-8 rounded-xl text-center cursor-pointer transition-all ${
+                                isDraggingVideo ? 'border-anirvan-accent bg-anirvan-accent/5 scale-[1.02]' : 'border-white/10 hover:bg-white/5'
+                            }`}
+                        >
+                            <Film className={`mx-auto mb-3 h-8 w-8 transition-colors ${isDraggingVideo ? 'text-anirvan-accent' : 'text-white'}`}/>
+                            <p className="text-sm font-bold text-white mb-1">{selectedVideo ? "Video Added" : "Add Video (Max 1)"}</p>
+                            <p className="text-[10px] text-anirvan-muted uppercase tracking-wider">Drag or click to add</p>
+                            <input type="file" ref={videoInputRef} className="hidden" accept="video/*" onChange={e => {if(e.target.files?.[0]) setSelectedVideo(e.target.files[0])}}/>
+                        </div>
                     </div>
-                    <button onClick={handleSubmit} disabled={isSubmitting} className="w-full bg-anirvan-primary text-anirvan-dark py-4 rounded-lg font-bold tracking-widest uppercase hover:scale-[1.01] transition-transform disabled:opacity-50 flex justify-center items-center gap-2">
-                        {isSubmitting ? <Loader2 className="animate-spin"/> : <Wallet className="h-5 w-5"/>}
-                        {isSubmitting ? 'Submitting...' : 'Sign & Submit'}
-                    </button>
+                    
+                    <div className="mb-6 flex items-center justify-center gap-2 text-xs text-anirvan-muted italic">
+                        <Clock className="h-3.5 w-3.5" /> Requirement: Minimum 1 photo or video evidence
+                    </div>
+
+                    <div className="flex gap-4">
+                        <button onClick={() => setStep(3)} className="text-white/50 hover:text-white transition-colors px-4">Back</button>
+                        <button 
+                            onClick={handleSubmit} 
+                            disabled={isSubmitting || (selectedImages.length === 0 && !selectedVideo)} 
+                            className="flex-1 bg-anirvan-primary text-anirvan-dark py-4 rounded-lg font-black tracking-widest uppercase hover:bg-anirvan-accent transition-all active:scale-[0.98] disabled:opacity-20 disabled:grayscale disabled:cursor-not-allowed flex justify-center items-center gap-2 shadow-lg shadow-anirvan-primary/10"
+                        >
+                            {isSubmitting ? <Loader2 className="animate-spin"/> : <Wallet className="h-5 w-5"/>}
+                            {isSubmitting ? 'Submitting...' : 'Sign & Submit'}
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
