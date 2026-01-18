@@ -22,7 +22,7 @@ const EnterpriseView = () => {
   const { writeContract, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-  // 1. Fetch Approved Projects from Supabase
+  // 1. Fetch Approved Projects from Supabase (FIXED IMAGE PARSING)
   useEffect(() => {
     const fetchApproved = async () => {
       const { data } = await supabase
@@ -32,19 +32,43 @@ const EnterpriseView = () => {
         .order('submitted_at', { ascending: true });
       
       if (data) {
-        const mapped = data.map((row: any) => ({
-            id: row.survey_number,
-            ownerName: row.full_name,
-            species: row.tree_species,
-            area: row.area_acres,
-            pdfName: row.document_url,
-            coordinates: row.coordinates,
-            polygonPath: row.polygon_path,
-            status: row.status,
-            submittedAt: row.submitted_at,
-            images: Array.isArray(row.images) ? row.images : [], // Ensure this is a clean array
-            videoName: row.video_url
-        }));
+        const mapped = data.map((row: any) => {
+            
+            // --- ROBUST IMAGE PARSING START ---
+            let cleanImages: string[] = [];
+            const rawImg = row.images;
+
+            if (Array.isArray(rawImg)) {
+                cleanImages = rawImg;
+            } else if (typeof rawImg === 'string') {
+                if (rawImg.startsWith('{') && rawImg.endsWith('}')) {
+                    // Postgres Array format: {url1,url2}
+                    cleanImages = rawImg.slice(1, -1).split(',');
+                } else if (rawImg.startsWith('[') && rawImg.endsWith(']')) {
+                    // JSON String format: ["url1","url2"]
+                    try { cleanImages = JSON.parse(rawImg); } catch(e) {}
+                } else if (rawImg.startsWith('http')) {
+                    cleanImages = [rawImg];
+                }
+            }
+            // Clean up quotes
+            cleanImages = cleanImages.map(url => url.replace(/"/g, ''));
+            // --- ROBUST IMAGE PARSING END ---
+
+            return {
+                id: row.survey_number,
+                ownerName: row.full_name,
+                species: row.tree_species,
+                area: row.area_acres,
+                pdfName: row.document_url,
+                coordinates: row.coordinates,
+                polygonPath: row.polygon_path,
+                status: row.status,
+                submittedAt: row.submitted_at,
+                images: cleanImages, // Use fixed images
+                videoName: row.video_url
+            };
+        });
         setProjects(mapped);
       }
     };
@@ -52,7 +76,6 @@ const EnterpriseView = () => {
   }, []);
 
   // 2. Dynamic Blockchain Fetching
-  // Creates a contract call for every item found in the Supabase projects array
   const { data: contractData } = useReadContracts({
     contracts: projects.map((_, index) => ({
       address: CONTRACT_ADDRESS as `0x${string}`,
@@ -62,27 +85,22 @@ const EnterpriseView = () => {
     })),
   });
 
-  // 3. Real-Time Ticker Logic (SYNCHRONIZED WITH LANDOWNER LOGIC)
+  // 3. Real-Time Ticker Logic
   useEffect(() => {
     if (!contractData || projects.length === 0) return;
 
     const interval = setInterval(() => {
-      const now = Date.now(); // Current time in ms
+      const now = Date.now();
       const newMarketData: Record<number, ProjectMarketData> = {};
 
       contractData.forEach((result, index) => {
         const pData = result.result as any; 
         if (!pData) return;
 
-        // --- UPDATED CALCULATION START ---
-        // Instead of contract lastClaimTime, we use project.submittedAt from Supabase
-        // to match the LandownerView logic exactly.
         const project = projects[index];
         
         if (project && project.submittedAt) {
             const submittedTime = new Date(project.submittedAt).getTime();
-            
-            // Calculate elapsed seconds from submission (Project Start)
             const secondsElapsed = Math.floor((now - submittedTime) / 1000);
             
             // 1 Token every 60 seconds
@@ -92,19 +110,18 @@ const EnterpriseView = () => {
             const cost = pending * 20;
 
             newMarketData[index] = {
-              lastClaimTime: BigInt(0), // Placeholder, not used for calc anymore
+              lastClaimTime: BigInt(0), 
               pendingTokens: pending,
               costInPol: cost
             };
         }
-        // --- UPDATED CALCULATION END ---
       });
 
       setMarketData(newMarketData);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [contractData, projects]); // Added projects to dependency array
+  }, [contractData, projects]);
 
 
   const handleBuy = (index: number) => {
@@ -153,6 +170,7 @@ const EnterpriseView = () => {
                             src={firstImage} 
                             className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" 
                             alt={project.ownerName}
+                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x200?text=No+Image'; }}
                         />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white/10 font-bold uppercase tracking-widest text-[10px]">

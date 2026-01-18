@@ -95,28 +95,57 @@ const LandownerView = () => {
       setIsLoadingDashboard(false);
   };
 
-  // --- 2. REGISTRATION SUBMISSION ---
+  // --- 2. REGISTRATION SUBMISSION (UPDATED BUCKETS) ---
   const handleSubmit = async () => {
     if (!formData.id || !coordinates || !selectedFile || !address) return;
     setIsSubmitting(true);
 
     try {
+        // 1. UPLOAD PDF (Stays in 'land_documents')
         const docName = `${Date.now()}_doc_${selectedFile.name.replace(/\s/g, '_')}`;
-        await supabase.storage.from('land_documents').upload(docName, selectedFile);
-        const { data: { publicUrl: docUrl } } = supabase.storage.from('land_documents').getPublicUrl(docName);
+        const { error: docError } = await supabase.storage
+            .from('land_documents')
+            .upload(docName, selectedFile);
+        if (docError) throw docError;
 
+        const { data: { publicUrl: docUrl } } = supabase.storage
+            .from('land_documents')
+            .getPublicUrl(docName);
+
+        // 2. UPLOAD IMAGES (Goes to 'land_images')
         const imageUrls = [];
         for (const img of selectedImages) {
             const imgName = `${Date.now()}_img_${img.name.replace(/\s/g, '_')}`;
-            await supabase.storage.from('land_documents').upload(imgName, img);
-            imageUrls.push(supabase.storage.from('land_documents').getPublicUrl(imgName).data.publicUrl);
+            
+            // Upload to new bucket
+            const { error: imgError } = await supabase.storage
+                .from('land_images') 
+                .upload(imgName, img);
+            if (imgError) throw imgError;
+
+            // Get URL from new bucket
+            const { data: { publicUrl: imgUrl } } = supabase.storage
+                .from('land_images')
+                .getPublicUrl(imgName);
+                
+            imageUrls.push(imgUrl);
         }
 
+        // 3. UPLOAD VIDEO (Goes to 'land_videos')
         let videoUrl = '';
         if (selectedVideo) {
             const vidName = `${Date.now()}_vid_${selectedVideo.name.replace(/\s/g, '_')}`;
-            await supabase.storage.from('land_documents').upload(vidName, selectedVideo);
-            videoUrl = supabase.storage.from('land_documents').getPublicUrl(vidName).data.publicUrl;
+            
+            // Upload to new bucket
+            const { error: vidError } = await supabase.storage
+                .from('land_videos')
+                .upload(vidName, selectedVideo);
+            if (vidError) throw vidError;
+
+            // Get URL from new bucket
+            videoUrl = supabase.storage
+                .from('land_videos')
+                .getPublicUrl(vidName).data.publicUrl;
         }
 
         const { error } = await supabase.from('land_applications').insert([{
@@ -143,7 +172,8 @@ const LandownerView = () => {
         setSelectedFile(null);
         setFormData(p => ({...p, pdfName: ''}));
     } catch (e: any) {
-        alert(e.message);
+        console.error("Upload Error:", e);
+        alert(e.message || "Upload failed");
     } finally {
         setIsSubmitting(false);
     }

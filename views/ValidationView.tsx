@@ -22,42 +22,69 @@ const ValidationView = () => {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
   // CONSTANTS
-  const REVERIFICATION_PERIOD_MS = 13*24*60*60 * 1000; // 13 Days in Milliseconds
+  const REVERIFICATION_PERIOD_MS = 13*24*60*60 * 1000; // 13 Days
 
-  // Load Queue
+  // Load Queue (Fixed Image Parsing)
   const loadApplications = async () => {
+    console.log("Loading applications...");
     const { data, error } = await supabase
         .from('land_applications')
         .select('*')
         .order('submitted_at', { ascending: false });
     
-    if (data) {
-        const apps = data.map((row: any) => ({
-            id: row.survey_number,
-            ownerName: row.full_name,
-            species: row.tree_species,
-            area: row.area_acres,
-            coordinates: row.coordinates,
-            polygonPath: row.polygon_path,
-            status: row.status,
-            walletAddress: row.wallet_address,
-            pdfName: row.document_url, 
-            images: Array.isArray(row.images) ? row.images : [], 
-            videoName: row.video_url, 
-            submittedAt: row.submitted_at,
-            lastVerifiedAt: row.last_verified_at // Map from DB
-        }));
+    if (error) console.error("Supabase Error:", error);
 
-        // FILTER LOGIC:
-        // 1. Status is PENDING
-        // 2. OR Status is APPROVED but time since last check > 5 days
+    if (data) {
+        const apps = data.map((row: any) => {
+            
+            // --- FIX: ROBUST IMAGE PARSING ---
+            let cleanImages: string[] = [];
+            const rawImg = row.images;
+
+            if (Array.isArray(rawImg)) {
+                // It's already a good list
+                cleanImages = rawImg;
+            } else if (typeof rawImg === 'string') {
+                // It's a string, let's try to fix it
+                if (rawImg.startsWith('{') && rawImg.endsWith('}')) {
+                    // Postgres Array format: {url1,url2}
+                    cleanImages = rawImg.slice(1, -1).split(',');
+                } else if (rawImg.startsWith('[') && rawImg.endsWith(']')) {
+                    // JSON String format: ["url1","url2"]
+                    try { cleanImages = JSON.parse(rawImg); } catch(e) {}
+                } else if (rawImg.startsWith('http')) {
+                    // Just one URL string
+                    cleanImages = [rawImg];
+                }
+            }
+            
+            // Clean up any double quotes in URLs if parsing failed
+            cleanImages = cleanImages.map(url => url.replace(/"/g, ''));
+            // ----------------------------------
+
+            return {
+                id: row.survey_number,
+                ownerName: row.full_name,
+                species: row.tree_species,
+                area: row.area_acres,
+                coordinates: row.coordinates,
+                polygonPath: row.polygon_path,
+                status: row.status,
+                walletAddress: row.wallet_address,
+                pdfName: row.document_url, 
+                images: cleanImages, // Use the fixed list
+                videoName: row.video_url, 
+                submittedAt: row.submitted_at,
+                lastVerifiedAt: row.last_verified_at
+            };
+        });
+
+        // Filter Logic
         const queue = apps.filter((a: LandApplication) => {
             if (a.status === 'PENDING') return true;
             if (a.status === 'APPROVED') {
-                // If lastVerifiedAt exists, use it. Otherwise fallback to submittedAt
                 const lastCheckTime = a.lastVerifiedAt ? new Date(a.lastVerifiedAt).getTime() : new Date(a.submittedAt).getTime();
-                const now = Date.now();
-                return (now - lastCheckTime) > REVERIFICATION_PERIOD_MS;
+                return (Date.now() - lastCheckTime) > REVERIFICATION_PERIOD_MS;
             }
             return false;
         });
@@ -69,10 +96,9 @@ const ValidationView = () => {
   useEffect(() => { if(isConnected) loadApplications(); }, [isConnected]);
   useEffect(() => { if (hash) setTxnHash(hash); }, [hash]);
   
-  // Effect: Handle Blockchain Confirmation (For Initial Registration)
+  // Effect: Handle Blockchain Confirmation
   useEffect(() => {
     if (isConfirmed && selectedApp) {
-        // Blockchain success -> Update DB
         finalizeApproval();
     }
   }, [isConfirmed]);
@@ -107,15 +133,11 @@ const ValidationView = () => {
   const handleApprove = () => {
       if (!selectedApp?.walletAddress) return alert("No wallet linked to this application");
       
-      // CASE 1: RE-VERIFICATION (Already Approved, just expired)
-      // We do NOT write to blockchain again, just update DB timestamp
       if (selectedApp.status === 'APPROVED') {
           finalizeApproval();
           return;
       }
 
-      // CASE 2: INITIAL REGISTRATION
-      // We must write to blockchain first
       writeContract({
           address: CONTRACT_ADDRESS,
           abi: CONTRACT_ABI,
