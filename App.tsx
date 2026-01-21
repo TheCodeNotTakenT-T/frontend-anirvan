@@ -37,10 +37,10 @@ const App = () => {
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <Leaf className="h-6 w-6 text-anirvan-accent" />
-              <span className="text-xl font-bold text-white">anirvan</span>
+              <Leaf className="h-6 w-6 text-Govan-accent" />
+              <span className="text-xl font-bold text-white">Govan</span>
             </div>
-            <p className="text-sm text-anirvan-muted">
+            <p className="text-sm text-Govan-muted">
               Built at IIIT Kottayam's Code Kalari Hackathon. <br />
               January 17th, 2026 • Team Decaf-test.
             </p>
@@ -67,15 +67,14 @@ const App = () => {
           
           <div>
             <h4 className="text-white font-bold mb-4">Platform</h4>
-            <ul className="space-y-2 text-sm text-anirvan-muted">
-              <li>Explorer</li>
+            <ul className="space-y-2 text-sm text-Govan-muted">
               <li>Documentation</li>
               <li>API Status</li>
             </ul>
           </div>
           <div>
             <h4 className="text-white font-bold mb-4">Governance</h4>
-            <ul className="space-y-2 text-sm text-anirvan-muted">
+            <ul className="space-y-2 text-sm text-Govan-muted">
               <li>DAO</li>
               <li>Tokenomics</li>
               <li>Voting</li>
@@ -83,7 +82,7 @@ const App = () => {
           </div>
           <div>
             <h4 className="text-white font-bold mb-4">Connect</h4>
-            <div className="flex gap-4 text-anirvan-muted">
+            <div className="flex gap-4 text-Govan-muted">
               <div className="h-8 w-8 bg-white/5 rounded flex items-center justify-center hover:bg-white/10 cursor-pointer">X</div>
               <div className="h-8 w-8 bg-white/5 rounded flex items-center justify-center hover:bg-white/10 cursor-pointer">D</div>
               <div className="h-8 w-8 bg-white/5 rounded flex items-center justify-center hover:bg-white/10 cursor-pointer">G</div>
