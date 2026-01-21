@@ -22,7 +22,7 @@ const ValidationView = () => {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
   // CONSTANTS
-  const REVERIFICATION_PERIOD_MS = 13*24*60*60 * 1000; // 13 Days
+  const REVERIFICATION_PERIOD_MS = 60 * 1000; // 13 Days
 
   // Load Queue (Fixed Image Parsing)
   const loadApplications = async () => {
